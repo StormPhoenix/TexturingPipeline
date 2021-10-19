@@ -365,16 +365,12 @@ struct reducer_traits<OrReducer, Device> {
   };
 };
 
-// Argmin/Argmax reducers.  Returns the first occurrence if multiple locations
-// contain the same min/max value.
+
+// Argmin/Argmax reducers
 template <typename T> struct ArgMaxTupleReducer
 {
   EIGEN_DEVICE_FUNC EIGEN_STRONG_INLINE void reduce(const T t, T* accum) const {
-    if (t.second < accum->second) {
-      return;
-    } else if (t.second > accum->second || accum->first > t.first ) {
-      *accum = t;
-    }
+    if (t.second > accum->second) { *accum = t; }
   }
   EIGEN_DEVICE_FUNC EIGEN_STRONG_INLINE T initialize() const {
     return T(0, NumTraits<typename T::second_type>::lowest());
@@ -398,11 +394,7 @@ struct reducer_traits<ArgMaxTupleReducer<T>, Device> {
 template <typename T> struct ArgMinTupleReducer
 {
   EIGEN_DEVICE_FUNC EIGEN_STRONG_INLINE void reduce(const T& t, T* accum) const {
-    if (t.second > accum->second) {
-      return;
-    } else if (t.second < accum->second || accum->first > t.first) {
-      *accum = t;
-    }
+    if (t.second < accum->second) { *accum = t; }
   }
   EIGEN_DEVICE_FUNC EIGEN_STRONG_INLINE T initialize() const {
     return T(0, NumTraits<typename T::second_type>::highest());

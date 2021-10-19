@@ -41,8 +41,7 @@ set(COMPUTECPP_BITCODE "spir64" CACHE STRING
   "Bitcode type to use as SYCL target in compute++")
 mark_as_advanced(COMPUTECPP_BITCODE)
 
-include(CMakeFindDependencyMacro)
-find_dependency(OpenCL REQUIRED)
+find_package(OpenCL REQUIRED)
 
 # Find ComputeCpp package
 

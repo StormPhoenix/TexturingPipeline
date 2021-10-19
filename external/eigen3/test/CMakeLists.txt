@@ -164,6 +164,7 @@ ei_add_test(nullary)
 ei_add_test(mixingtypes)
 ei_add_test(io)
 ei_add_test(packetmath "-DEIGEN_FAST_MATH=1")
+ei_add_test(unalignedassert)
 ei_add_test(vectorization_logic)
 ei_add_test(basicstuff)
 ei_add_test(constructor)
@@ -459,7 +460,3 @@ cmake_dependent_option(EIGEN_TEST_BUILD_DOCUMENTATION "Test building the doxygen
 if(EIGEN_TEST_BUILD_DOCUMENTATION)
   add_dependencies(buildtests doc)
 endif()
-
-# Register all smoke tests
-include("EigenSmokeTestList")
-ei_add_smoke_tests("${ei_smoke_test_list}")

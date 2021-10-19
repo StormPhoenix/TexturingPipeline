@@ -78,18 +78,13 @@ bool isApproxAbs(const Scalar& a, const Scalar& b, const typename NumTraits<Scal
   return internal::isMuchSmallerThan(a-b, refvalue);
 }
 
-template<typename Scalar>
-inline void print_mismatch(const Scalar* ref, const Scalar* vec, int size) {
-  std::cout << "ref: [" << Map<const Matrix<Scalar,1,Dynamic> >(ref,size) << "]" << " != vec: [" << Map<const Matrix<Scalar,1,Dynamic> >(vec,size) << "]\n";
-}
-
 template<typename Scalar> bool areApproxAbs(const Scalar* a, const Scalar* b, int size, const typename NumTraits<Scalar>::Real& refvalue)
 {
   for (int i=0; i<size; ++i)
   {
     if (!isApproxAbs(a[i],b[i],refvalue))
     {
-      print_mismatch(a, b, size);
+      std::cout << "ref: [" << Map<const Matrix<Scalar,1,Dynamic> >(a,size) << "]" << " != vec: [" << Map<const Matrix<Scalar,1,Dynamic> >(b,size) << "]\n";
       return false;
     }
   }
@@ -100,23 +95,13 @@ template<typename Scalar> bool areApprox(const Scalar* a, const Scalar* b, int s
 {
   for (int i=0; i<size; ++i)
   {
-    if ( a[i]!=b[i] && !internal::isApprox(a[i],b[i]) 
-         && !((numext::isnan)(a[i]) && (numext::isnan)(b[i])) )
+    if (a[i]!=b[i] && !internal::isApprox(a[i],b[i]))
     {
-      print_mismatch(a, b, size);
-      return false;
-    }
-  }
-  return true;
-}
-
-template<typename Scalar> bool areEqual(const Scalar* a, const Scalar* b, int size)
-{
-  for (int i=0; i<size; ++i)
-  {
-    if ( (a[i] != b[i]) && !((numext::isnan)(a[i]) && (numext::isnan)(b[i])) )
-    {
-      print_mismatch(a, b, size);
+      if((numext::isnan)(a[i]) && (numext::isnan)(b[i]))
+      {
+        continue;
+      }
+      std::cout << "ref: [" << Map<const Matrix<Scalar,1,Dynamic> >(a,size) << "]" << " != vec: [" << Map<const Matrix<Scalar,1,Dynamic> >(b,size) << "]\n";
       return false;
     }
   }
@@ -191,14 +176,6 @@ struct packet_helper<false,Packet>
     ref[i] = Scalar(REFOP(data1[i])); \
   h.store(data2, POP(h.load(data1))); \
   VERIFY(test::areApprox(ref, data2, PacketSize) && #POP); \
-}
-
-#define CHECK_CWISE1_EXACT_IF(COND, REFOP, POP) if(COND) { \
-  test::packet_helper<COND,Packet> h; \
-  for (int i=0; i<PacketSize; ++i) \
-    ref[i] = Scalar(REFOP(data1[i])); \
-  h.store(data2, POP(h.load(data1))); \
-  VERIFY(test::areEqual(ref, data2, PacketSize) && #POP); \
 }
 
 #define CHECK_CWISE2_IF(COND, REFOP, POP) if(COND) { \

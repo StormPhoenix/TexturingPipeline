@@ -88,9 +88,6 @@ else()
   ei_add_cxx_compiler_flag("-std=c++03")
 endif()
 
-# Determine if we should build shared libraries on this platform.
-get_cmake_property(EIGEN_BUILD_SHARED_LIBS TARGET_SUPPORTS_SHARED_LIBS)
-
 #############################################################################
 # find how to link to the standard libraries                                #
 #############################################################################
@@ -427,26 +424,25 @@ endif()
 
 if(EIGEN_INCLUDE_INSTALL_DIR AND NOT INCLUDE_INSTALL_DIR)
   set(INCLUDE_INSTALL_DIR ${EIGEN_INCLUDE_INSTALL_DIR}
-      CACHE PATH "The directory relative to CMAKE_INSTALL_PREFIX where Eigen header files are installed")
+      CACHE STRING "The directory relative to CMAKE_PREFIX_PATH where Eigen header files are installed")
 else()
   set(INCLUDE_INSTALL_DIR
       "${CMAKE_INSTALL_INCLUDEDIR}/eigen3"
-      CACHE PATH "The directory relative to CMAKE_INSTALL_PREFIX where Eigen header files are installed"
+      CACHE STRING "The directory relative to CMAKE_PREFIX_PATH where Eigen header files are installed"
       )
 endif()
 set(CMAKEPACKAGE_INSTALL_DIR
     "${CMAKE_INSTALL_DATADIR}/eigen3/cmake"
-    CACHE PATH "The directory relative to CMAKE_INSTALL_PREFIX where Eigen3Config.cmake is installed"
+    CACHE STRING "The directory relative to CMAKE_PREFIX_PATH where Eigen3Config.cmake is installed"
     )
 set(PKGCONFIG_INSTALL_DIR
     "${CMAKE_INSTALL_DATADIR}/pkgconfig"
-    CACHE PATH "The directory relative to CMAKE_INSTALL_PREFIX where eigen3.pc is installed"
+    CACHE STRING "The directory relative to CMAKE_PREFIX_PATH where eigen3.pc is installed"
     )
 
 foreach(var INCLUDE_INSTALL_DIR CMAKEPACKAGE_INSTALL_DIR PKGCONFIG_INSTALL_DIR)
-  # If an absolute path is specified, make it relative to "{CMAKE_INSTALL_PREFIX}".
   if(IS_ABSOLUTE "${${var}}")
-    file(RELATIVE_PATH "${var}" "${CMAKE_INSTALL_PREFIX}" "${${var}}")
+    message(FATAL_ERROR "${var} must be relative to CMAKE_PREFIX_PATH. Got: ${${var}}")
   endif()
 endforeach()
 

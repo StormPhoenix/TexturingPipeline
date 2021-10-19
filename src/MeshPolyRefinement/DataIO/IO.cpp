@@ -413,9 +413,10 @@ namespace MeshPolyRefinement {
 			std::filebuf fb_binary;
 			fb_binary.open(file_name, std::ios::out | std::ios::binary);
 			std::ostream outstream_binary(&fb_binary);
-			if (outstream_binary.fail()) throw std::runtime_error("failed to open " + file_name);
 
-			tinyply::PlyFile geom_file;
+            if (outstream_binary.fail()) throw std::runtime_error("failed to open " + file_name);
+
+            tinyply::PlyFile geom_file;
 			geom_file.add_properties_to_element("vertex", { "x", "y", "z" },
 				tinyply::Type::FLOAT32, geom.vertices.size(), reinterpret_cast<uint8_t*>(geom.vertices.data()), tinyply::Type::INVALID, 0);
 
@@ -425,8 +426,9 @@ namespace MeshPolyRefinement {
 			geom_file.add_properties_to_element("face", { "red", "green", "blue" },
 				tinyply::Type::UINT8, geom.triangle_colors.size(), reinterpret_cast<uint8_t*>(geom.triangle_colors.data()), tinyply::Type::INVALID, 0);
 
-			geom_file.write(outstream_binary, true);
-		}
+            geom_file.write(outstream_binary, true);
+            return true;
+        }
 
 		bool save_mesh_plane_parameters(const std::string& file_name, const Base::TriMesh& mesh) {
 			std::ofstream fout_binary;

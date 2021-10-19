@@ -37,7 +37,7 @@ namespace Eigen {
 
 namespace internal {
 
-/** \ingroup IterativeLinearSolvers_Module
+/** \ingroup IterativeSolvers_Module
   * Compute the pseudo inverse of the non-square matrix C such that
   * \f$ CINV = (C * C^T)^{-1} * C \f$ based on a conjugate gradient method.
   *
@@ -96,7 +96,7 @@ void pseudo_inverse(const CMatrix &C, CINVMatrix &CINV)
 
 
 
-/** \ingroup IterativeLinearSolvers_Module
+/** \ingroup IterativeSolvers_Module
   * Constrained conjugate gradient
   *
   * Computes the minimum of \f$ 1/2((Ax).x) - bx \f$ under the constraint \f$ Cx \le f \f$

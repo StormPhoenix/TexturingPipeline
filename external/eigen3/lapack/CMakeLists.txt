@@ -88,29 +88,25 @@ endif()
 
 endif()
 
-set(EIGEN_LAPACK_TARGETS "")
-
 add_library(eigen_lapack_static ${EigenLapack_SRCS} ${ReferenceLapack_SRCS})
-list(APPEND EIGEN_LAPACK_TARGETS eigen_lapack_static)
+add_library(eigen_lapack SHARED ${EigenLapack_SRCS})
 
-if (EIGEN_BUILD_SHARED_LIBS)
-  add_library(eigen_lapack SHARED ${EigenLapack_SRCS})
-  list(APPEND EIGEN_LAPACK_TARGETS eigen_lapack)
-  target_link_libraries(eigen_lapack  eigen_blas)
+target_link_libraries(eigen_lapack  eigen_blas)
+
+if(EIGEN_STANDARD_LIBRARIES_TO_LINK_TO)
+  target_link_libraries(eigen_lapack_static ${EIGEN_STANDARD_LIBRARIES_TO_LINK_TO})
+  target_link_libraries(eigen_lapack        ${EIGEN_STANDARD_LIBRARIES_TO_LINK_TO})
 endif()
 
-foreach(target IN LISTS EIGEN_LAPACK_TARGETS)
-  if(EIGEN_STANDARD_LIBRARIES_TO_LINK_TO)
-    target_link_libraries(${target} ${EIGEN_STANDARD_LIBRARIES_TO_LINK_TO})
-  endif()
-  add_dependencies(lapack ${target})
-  install(TARGETS ${target}
-          RUNTIME DESTINATION bin
-          LIBRARY DESTINATION lib
-          ARCHIVE DESTINATION lib)
-endforeach()
+add_dependencies(lapack eigen_lapack eigen_lapack_static)
 
+install(TARGETS eigen_lapack eigen_lapack_static
+        RUNTIME DESTINATION bin
+        LIBRARY DESTINATION lib
+        ARCHIVE DESTINATION lib)
 
+        
+        
 get_filename_component(eigen_full_path_to_testing_lapack "./testing/" ABSOLUTE)
 if(EXISTS ${eigen_full_path_to_testing_lapack})
   

@@ -71,12 +71,11 @@ if( SCOTCH_FIND_COMPONENTS )
 endif()
 
 # SCOTCH may depend on Threads, try to find it
-include(CMakeFindDependencyMacro)
 if (NOT THREADS_FOUND)
   if (SCOTCH_FIND_REQUIRED)
-    find_dependency(Threads REQUIRED)
+    find_package(Threads REQUIRED)
   else()
-    find_dependency(Threads)
+    find_package(Threads)
   endif()
 endif()
 

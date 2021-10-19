@@ -77,11 +77,10 @@ inline void compute_inverse_size2_helper(
     const MatrixType& matrix, const typename ResultType::Scalar& invdet,
     ResultType& result)
 {
-  typename ResultType::Scalar temp = matrix.coeff(0,0);
   result.coeffRef(0,0) =  matrix.coeff(1,1) * invdet;
   result.coeffRef(1,0) = -matrix.coeff(1,0) * invdet;
   result.coeffRef(0,1) = -matrix.coeff(0,1) * invdet;
-  result.coeffRef(1,1) =  temp * invdet;
+  result.coeffRef(1,1) =  matrix.coeff(0,0) * invdet;
 }
 
 template<typename MatrixType, typename ResultType>
@@ -144,18 +143,13 @@ inline void compute_inverse_size3_helper(
     const Matrix<typename ResultType::Scalar,3,1>& cofactors_col0,
     ResultType& result)
 {
-  // Compute cofactors in a way that avoids aliasing issues.
-  typedef typename ResultType::Scalar Scalar;
-  const Scalar c01 = cofactor_3x3<MatrixType,0,1>(matrix) * invdet;
-  const Scalar c11 = cofactor_3x3<MatrixType,1,1>(matrix) * invdet;
-  const Scalar c02 = cofactor_3x3<MatrixType,0,2>(matrix) * invdet;
+  result.row(0) = cofactors_col0 * invdet;
+  result.coeffRef(1,0) =  cofactor_3x3<MatrixType,0,1>(matrix) * invdet;
+  result.coeffRef(1,1) =  cofactor_3x3<MatrixType,1,1>(matrix) * invdet;
   result.coeffRef(1,2) =  cofactor_3x3<MatrixType,2,1>(matrix) * invdet;
+  result.coeffRef(2,0) =  cofactor_3x3<MatrixType,0,2>(matrix) * invdet;
   result.coeffRef(2,1) =  cofactor_3x3<MatrixType,1,2>(matrix) * invdet;
   result.coeffRef(2,2) =  cofactor_3x3<MatrixType,2,2>(matrix) * invdet;
-  result.coeffRef(1,0) =  c01;
-  result.coeffRef(1,1) =  c11;
-  result.coeffRef(2,0) =  c02;  
-  result.row(0) = cofactors_col0 * invdet;
 }
 
 template<typename MatrixType, typename ResultType>
@@ -187,13 +181,14 @@ struct compute_inverse_and_det_with_check<MatrixType, ResultType, 3>
     bool& invertible
   )
   {
+    using std::abs;
     typedef typename ResultType::Scalar Scalar;
     Matrix<Scalar,3,1> cofactors_col0;
     cofactors_col0.coeffRef(0) =  cofactor_3x3<MatrixType,0,0>(matrix);
     cofactors_col0.coeffRef(1) =  cofactor_3x3<MatrixType,1,0>(matrix);
     cofactors_col0.coeffRef(2) =  cofactor_3x3<MatrixType,2,0>(matrix);
     determinant = (cofactors_col0.cwiseProduct(matrix.col(0))).sum();
-    invertible = Eigen::numext::abs(determinant) > absDeterminantThreshold;
+    invertible = abs(determinant) > absDeterminantThreshold;
     if(!invertible) return;
     const Scalar invdet = Scalar(1) / determinant;
     compute_inverse_size3_helper(matrix, invdet, cofactors_col0, inverse);
@@ -278,13 +273,7 @@ struct compute_inverse_and_det_with_check<MatrixType, ResultType, 4>
     using std::abs;
     determinant = matrix.determinant();
     invertible = abs(determinant) > absDeterminantThreshold;
-    if(invertible && extract_data(matrix) != extract_data(inverse)) {
-      compute_inverse<MatrixType, ResultType>::run(matrix, inverse);
-    }
-    else if(invertible) {
-      MatrixType matrix_t = matrix;
-      compute_inverse<MatrixType, ResultType>::run(matrix_t, inverse);
-    }
+    if(invertible) compute_inverse<MatrixType, ResultType>::run(matrix, inverse);
   }
 };
 
@@ -358,8 +347,6 @@ inline const Inverse<Derived> MatrixBase<Derived>::inverse() const
   *
   * This is only for fixed-size square matrices of size up to 4x4.
   *
-  * Notice that it will trigger a copy of input matrix when trying to do the inverse in place.
-  *
   * \param inverse Reference to the matrix in which to store the inverse.
   * \param determinant Reference to the variable in which to store the determinant.
   * \param invertible Reference to the bool variable in which to store whether the matrix is invertible.
@@ -399,8 +386,6 @@ inline void MatrixBase<Derived>::computeInverseAndDetWithCheck(
   * Computation of matrix inverse, with invertibility check.
   *
   * This is only for fixed-size square matrices of size up to 4x4.
-  *
-  * Notice that it will trigger a copy of input matrix when trying to do the inverse in place.
   *
   * \param inverse Reference to the matrix in which to store the inverse.
   * \param invertible Reference to the bool variable in which to store whether the matrix is invertible.

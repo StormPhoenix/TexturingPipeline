@@ -168,20 +168,6 @@ void test_arithmetic()
   VERIFY_IS_APPROX(float(half(1.0f) / half(3.0f)), 0.33333f);
   VERIFY_IS_EQUAL(float(-half(4096.0f)), -4096.0f);
   VERIFY_IS_EQUAL(float(-half(-4096.0f)), 4096.0f);
-  
-  half x(3);
-  half y = ++x;
-  VERIFY_IS_EQUAL(x, half(4));
-  VERIFY_IS_EQUAL(y, half(4));
-  y = --x;
-  VERIFY_IS_EQUAL(x, half(3));
-  VERIFY_IS_EQUAL(y, half(3));
-  y = x++;
-  VERIFY_IS_EQUAL(x, half(4));
-  VERIFY_IS_EQUAL(y, half(3));
-  y = x--;
-  VERIFY_IS_EQUAL(x, half(3));
-  VERIFY_IS_EQUAL(y, half(4));
 }
 
 void test_comparison()
@@ -268,11 +254,6 @@ void test_basic_functions()
   VERIFY_IS_EQUAL(float(log1p(half(0.0f))), 0.0f);
   VERIFY_IS_APPROX(float(numext::log1p(half(10.0f))), 2.3978953f);
   VERIFY_IS_APPROX(float(log1p(half(10.0f))), 2.3978953f);
-  
-  VERIFY_IS_APPROX(numext::fmod(half(5.3f), half(2.0f)), half(1.3f));
-  VERIFY_IS_APPROX(fmod(half(5.3f), half(2.0f)), half(1.3f));
-  VERIFY_IS_APPROX(numext::fmod(half(-18.5f), half(-4.2f)), half(-1.7f));
-  VERIFY_IS_APPROX(fmod(half(-18.5f), half(-4.2f)), half(-1.7f));
 }
 
 void test_trigonometric_functions()

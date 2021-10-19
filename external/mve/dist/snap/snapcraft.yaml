@@ -1,0 +1,80 @@
+name: mve
+version: '20170210-1'
+summary: Multi-View Environment
+description: |
+  The Multi-View Environment, MVE, is an implementation of a complete
+  end-to-end pipeline for image-based geometry reconstruction. It features
+  Structure-from-Motion, Multi-View Stereo and Surface Reconstruction.
+icon: snap/gui/umve.png
+
+grade: stable
+confinement: strict
+
+apps:
+  umve:
+    command: desktop-launch umve
+    plugs: [home, x11, mir, opengl, unity7, removable-media]
+  bundle2pset:
+    command: bundle2pset
+    plugs: [home, removable-media]
+  dmrecon:
+    command: dmrecon
+    plugs: [home, removable-media]
+  fssrecon:
+    command: fssrecon
+    plugs: [home, removable-media]
+  makescene:
+    command: makescene
+    plugs: [home, removable-media]
+  mesh2pset:
+    command: mesh2pset
+    plugs: [home, removable-media]
+  meshalign:
+    command: meshalign
+    plugs: [home, removable-media]
+  meshclean:
+    command: meshclean
+    plugs: [home, removable-media]
+  meshconvert:
+    command: meshconvert
+    plugs: [home, removable-media]
+  scene2pset:
+    command: scene2pset
+    plugs: [home, removable-media]
+  sceneupgrade:
+    command: sceneupgrade
+    plugs: [home, removable-media]
+  sfmrecon:
+    command: sfmrecon
+    plugs: [home, removable-media]
+
+parts:
+  mve:
+    after: [desktop-qt5]
+    plugin: make
+    source: https://github.com/simonfuhrmann/mve.git
+    source-commit: 2cfae0a430de965070e54e58a0da89173f7061ef
+    build-packages:
+      - g++
+      - libjpeg8-dev
+      - libpng12-dev
+      - libqt5opengl5-dev
+      - libtiff5-dev
+      - mesa-common-dev
+      - qt5-default
+    build: |
+      unset CXXFLAGS
+      make -j8
+      cd apps/umve
+      qmake
+      make -j8
+    install: |
+      mkdir -p $SNAPCRAFT_PART_INSTALL/bin
+      cd apps
+      for prog in bundle2pset dmrecon fssrecon makescene mesh2pset meshalign \
+                  meshclean meshconvert scene2pset sceneupgrade sfmrecon umve
+      do
+          cp "$prog/$prog" $SNAPCRAFT_PART_INSTALL/bin/
+      done
+      cp -a umve/shaders/ $SNAPCRAFT_PART_INSTALL/bin/
+

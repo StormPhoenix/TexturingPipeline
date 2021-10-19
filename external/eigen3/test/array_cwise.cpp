@@ -14,18 +14,18 @@
 template<typename Scalar>
 void pow_test() {
   const Scalar zero = Scalar(0);
-  const Scalar eps = Eigen::NumTraits<Scalar>::epsilon();
+  const Scalar eps = std::numeric_limits<Scalar>::epsilon();
   const Scalar one = Scalar(1);
   const Scalar two = Scalar(2);
   const Scalar three = Scalar(3);
   const Scalar sqrt_half = Scalar(std::sqrt(0.5));
   const Scalar sqrt2 = Scalar(std::sqrt(2));
-  const Scalar inf = Eigen::NumTraits<Scalar>::infinity();
-  const Scalar nan = Eigen::NumTraits<Scalar>::quiet_NaN();
+  const Scalar inf = std::numeric_limits<Scalar>::infinity();
+  const Scalar nan = std::numeric_limits<Scalar>::quiet_NaN();
   const Scalar denorm_min = std::numeric_limits<Scalar>::denorm_min();
   const Scalar min = (std::numeric_limits<Scalar>::min)();
   const Scalar max = (std::numeric_limits<Scalar>::max)();
-  const Scalar max_exp = (static_cast<Scalar>(int(Eigen::NumTraits<Scalar>::max_exponent())) * Scalar(EIGEN_LN2)) / eps;
+  const Scalar max_exp = (static_cast<Scalar>(std::numeric_limits<Scalar>::max_exponent) * Scalar(EIGEN_LN2)) / eps;
 
   const static Scalar abs_vals[] = {zero,
                                     denorm_min,
@@ -610,55 +610,6 @@ template<typename ArrayType> void min_max(const ArrayType& m)
   VERIFY_IS_APPROX(ArrayType::Constant(rows,cols, maxM1), (m1.max)( maxM1));
   VERIFY_IS_APPROX(m1, (m1.max)( minM1));
 
-
-  // min/max with various NaN propagation options.
-  if (m1.size() > 1 && !NumTraits<Scalar>::IsInteger) {
-    m1(0,0) = NumTraits<Scalar>::quiet_NaN();
-    maxM1 = m1.template maxCoeff<PropagateNaN>();
-    minM1 = m1.template minCoeff<PropagateNaN>();
-    VERIFY((numext::isnan)(maxM1));
-    VERIFY((numext::isnan)(minM1));
-
-    maxM1 = m1.template maxCoeff<PropagateNumbers>();
-    minM1 = m1.template minCoeff<PropagateNumbers>();
-    VERIFY(!(numext::isnan)(maxM1));
-    VERIFY(!(numext::isnan)(minM1));
-  }
-}
-
-template<int N>
-struct shift_left {
-  template<typename Scalar>
-  Scalar operator()(const Scalar& v) const {
-    return v << N;
-  }
-};
-
-template<int N>
-struct arithmetic_shift_right {
-  template<typename Scalar>
-  Scalar operator()(const Scalar& v) const {
-    return v >> N;
-  }
-};
-
-template<typename ArrayType> void array_integer(const ArrayType& m)
-{
-  Index rows = m.rows();
-  Index cols = m.cols();
-
-  ArrayType m1 = ArrayType::Random(rows, cols),
-            m2(rows, cols);
-
-  m2 = m1.template shiftLeft<2>();
-  VERIFY( (m2 == m1.unaryExpr(shift_left<2>())).all() );
-  m2 = m1.template shiftLeft<9>();
-  VERIFY( (m2 == m1.unaryExpr(shift_left<9>())).all() );
-  
-  m2 = m1.template shiftRight<2>();
-  VERIFY( (m2 == m1.unaryExpr(arithmetic_shift_right<2>())).all() );
-  m2 = m1.template shiftRight<9>();
-  VERIFY( (m2 == m1.unaryExpr(arithmetic_shift_right<9>())).all() );
 }
 
 EIGEN_DECLARE_TEST(array_cwise)
@@ -671,8 +622,6 @@ EIGEN_DECLARE_TEST(array_cwise)
     CALL_SUBTEST_5( array(ArrayXXf(internal::random<int>(1,EIGEN_TEST_MAX_SIZE), internal::random<int>(1,EIGEN_TEST_MAX_SIZE))) );
     CALL_SUBTEST_6( array(ArrayXXi(internal::random<int>(1,EIGEN_TEST_MAX_SIZE), internal::random<int>(1,EIGEN_TEST_MAX_SIZE))) );
     CALL_SUBTEST_6( array(Array<Index,Dynamic,Dynamic>(internal::random<int>(1,EIGEN_TEST_MAX_SIZE), internal::random<int>(1,EIGEN_TEST_MAX_SIZE))) );
-    CALL_SUBTEST_6( array_integer(ArrayXXi(internal::random<int>(1,EIGEN_TEST_MAX_SIZE), internal::random<int>(1,EIGEN_TEST_MAX_SIZE))) );
-    CALL_SUBTEST_6( array_integer(Array<Index,Dynamic,Dynamic>(internal::random<int>(1,EIGEN_TEST_MAX_SIZE), internal::random<int>(1,EIGEN_TEST_MAX_SIZE))) );
   }
   for(int i = 0; i < g_repeat; i++) {
     CALL_SUBTEST_1( comparisons(Array<float, 1, 1>()) );

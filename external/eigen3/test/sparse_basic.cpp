@@ -413,7 +413,7 @@ template<typename SparseMatrixType> void sparse_basic(const SparseMatrixType& re
 
     m.setFromTriplets(triplets.begin(), triplets.end(), std::multiplies<Scalar>());
     VERIFY_IS_APPROX(m, refMat_prod);
-#if (EIGEN_COMP_CXXVER >= 11)
+#if (defined(__cplusplus) && __cplusplus >= 201103L)
     m.setFromTriplets(triplets.begin(), triplets.end(), [] (Scalar,Scalar b) { return b; });
     VERIFY_IS_APPROX(m, refMat_last);
 #endif
@@ -688,7 +688,7 @@ void big_sparse_triplet(Index rows, Index cols, double density) {
   typedef Triplet<Scalar,Index> TripletType;
   std::vector<TripletType> triplets;
   double nelements = density * rows*cols;
-  VERIFY(nelements>=0 && nelements < static_cast<double>(NumTraits<StorageIndex>::highest()));
+  VERIFY(nelements>=0 && nelements <  NumTraits<StorageIndex>::highest());
   Index ntriplets = Index(nelements);
   triplets.reserve(ntriplets);
   Scalar sum = Scalar(0);

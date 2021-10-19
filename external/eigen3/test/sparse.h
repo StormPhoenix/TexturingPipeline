@@ -29,6 +29,10 @@
 
 #endif
 
+#ifdef EIGEN_GOOGLEHASH_SUPPORT
+  #include <google/sparse_hash_map>
+#endif
+
 #include <Eigen/Cholesky>
 #include <Eigen/LU>
 #include <Eigen/Sparse>

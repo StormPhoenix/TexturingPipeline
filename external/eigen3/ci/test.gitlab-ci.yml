@@ -342,7 +342,7 @@ test:ppc64le:linux:gcc-10:cxx11-on:unsupported:
   variables:
     EIGEN_CI_TEST_LABEL: "Unsupported"
 
-# # Clang 10
+# Clang 10
 .test:ppc64le:linux:clang-10:cxx11-off:
   extends: .test:linux:base
   variables:

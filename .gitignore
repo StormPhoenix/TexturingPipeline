@@ -174,3 +174,5 @@ out
 gen
 /external_project/
 /resource/
+
+*.DS_Store

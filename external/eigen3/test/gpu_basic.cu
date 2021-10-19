@@ -197,17 +197,18 @@ struct complex_operators {
     res.segment(block_idx, size) = x1; res.segment(block_idx, size).array() /= x2.array();
     block_idx += size;
 
-    const T true_vector = T::Constant(true_value);
-    const T false_vector = T::Constant(false_value);
-    res.segment(block_idx, size) = (x1 == x2 ? true_vector : false_vector);
-    block_idx += size;
-    // Mixing types in equality comparison does not work.
+    // Equality comparisons currently not functional on device
+    //   (std::equal_to<T> is host-only).
+    // const T true_vector = T::Constant(true_value);
+    // const T false_vector = T::Constant(false_value);
+    // res.segment(block_idx, size) = (x1 == x2 ? true_vector : false_vector);
+    // block_idx += size;
     // res.segment(block_idx, size) = (x1 == x2.real() ? true_vector : false_vector);
     // block_idx += size;
     // res.segment(block_idx, size) = (x1.real() == x2 ? true_vector : false_vector);
     // block_idx += size;
-    res.segment(block_idx, size) = (x1 != x2 ? true_vector : false_vector);
-    block_idx += size;
+    // res.segment(block_idx, size) = (x1 != x2 ? true_vector : false_vector);
+    // block_idx += size;
     // res.segment(block_idx, size) = (x1 != x2.real() ? true_vector : false_vector);
     // block_idx += size;
     // res.segment(block_idx, size) = (x1.real() != x2 ? true_vector : false_vector);
@@ -342,21 +343,6 @@ struct matrix_inverse {
   }
 };
 
-template<typename T>
-struct numeric_limits_test {
-  EIGEN_DEVICE_FUNC
-  void operator()(int i, const typename T::Scalar* in, typename T::Scalar* out) const
-  {
-    EIGEN_UNUSED_VARIABLE(in)
-    int out_idx = i * 5;
-    out[out_idx++] = numext::numeric_limits<float>::epsilon();
-    out[out_idx++] = (numext::numeric_limits<float>::max)();
-    out[out_idx++] = (numext::numeric_limits<float>::min)();
-    out[out_idx++] = numext::numeric_limits<float>::infinity();
-    out[out_idx++] = numext::numeric_limits<float>::quiet_NaN();
-  }
-};
-
 template<typename Type1, typename Type2>
 bool verifyIsApproxWithInfsNans(const Type1& a, const Type2& b, typename Type1::Scalar* = 0) // Enabled for Eigen's type only
 {
@@ -447,9 +433,6 @@ EIGEN_DECLARE_TEST(gpu_basic)
   // Test std::complex.
   CALL_SUBTEST( run_and_compare_to_gpu(complex_operators<Vector3cf>(), nthreads, cfin, cfout) );
   CALL_SUBTEST( test_with_infs_nans(complex_sqrt<Vector3cf>(), nthreads, cfin, cfout) );
-
-  // numeric_limits
-  CALL_SUBTEST( test_with_infs_nans(numeric_limits_test<Vector3f>(), 1, in, out) );
 
 #if defined(__NVCC__)
   // FIXME

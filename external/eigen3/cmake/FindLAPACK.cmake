@@ -26,7 +26,6 @@
 
 
 include(CheckFunctionExists)
-include(CMakeFindDependencyMacro)
 
 # This macro checks for the existence of the combination of fortran libraries
 # given by _list.  If the combination is found, this macro checks (using the
@@ -89,7 +88,7 @@ macro(check_lapack_libraries DEFINITIONS LIBRARIES _prefix _name _flags _list _b
     set(${LIBRARIES}    ${_libraries_found})
     # Some C++ linkers require the f2c library to link with Fortran libraries.
     # I do not know which ones, thus I just add the f2c library if it is available.
-    find_dependency( F2C QUIET )
+    find_package( F2C QUIET )
     if ( F2C_FOUND )
       set(${DEFINITIONS}  ${${DEFINITIONS}} ${F2C_DEFINITIONS})
       set(${LIBRARIES}    ${${LIBRARIES}} ${F2C_LIBRARIES})
@@ -136,9 +135,9 @@ endmacro()
 
 # LAPACK requires BLAS
 if(LAPACK_FIND_QUIETLY OR NOT LAPACK_FIND_REQUIRED)
-  find_dependency(BLAS)
+  find_package(BLAS)
 else()
-  find_dependency(BLAS REQUIRED)
+  find_package(BLAS REQUIRED)
 endif()
 
 if (NOT BLAS_FOUND)

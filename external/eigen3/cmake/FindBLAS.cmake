@@ -147,7 +147,6 @@ mark_as_advanced(BLAS_VERBOSE)
 
 include(CheckFunctionExists)
 include(CheckFortranFunctionExists)
-include(CMakeFindDependencyMacro)
 
 set(_blas_ORIG_CMAKE_FIND_LIBRARY_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES})
 
@@ -510,9 +509,9 @@ if (BLA_VENDOR MATCHES "Intel*" OR BLA_VENDOR STREQUAL "All")
 
     if (_LANGUAGES_ MATCHES C OR _LANGUAGES_ MATCHES CXX)
       if(BLAS_FIND_QUIETLY OR NOT BLAS_FIND_REQUIRED)
-	find_dependency(Threads)
+	find_package(Threads)
       else()
-	find_dependency(Threads REQUIRED)
+	find_package(Threads REQUIRED)
       endif()
 
       set(BLAS_SEARCH_LIBS "")
