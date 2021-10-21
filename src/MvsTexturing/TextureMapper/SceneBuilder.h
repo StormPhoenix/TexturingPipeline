@@ -18,6 +18,8 @@ namespace MvsTexturing {
             typedef mve::TriangleMesh::ConstPtr MeshConstPtr;
 
             void prepare_mesh(mve::MeshInfo *mesh_info, MeshPtr mesh);
+
+            void build_adjacency_graph(MeshConstPtr mesh, const mve::MeshInfo &mesh_info, Base::LabelGraph *graph);
         }
     }
 }

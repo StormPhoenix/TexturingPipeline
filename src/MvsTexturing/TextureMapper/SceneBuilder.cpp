@@ -15,7 +15,6 @@
 #include <mve/scene.h>
 #include <mve/mesh.h>
 
-#include "SceneBuilder.h"
 #include "Base/View.h"
 #include "Base/LabelGraph.h"
 #include "Utils/ProgressCounter.h"
@@ -293,6 +292,9 @@ namespace MvsTexturing {
         }
 
         namespace MVE {
+            typedef mve::TriangleMesh::Ptr MeshPtr;
+            typedef mve::TriangleMesh::ConstPtr MeshConstPtr;
+
             std::size_t remove_redundant_faces(const mve::MeshInfo &mesh_info, MeshPtr mesh) {
                 mve::TriangleMesh::FaceList &faces = mesh->get_faces();
                 mve::TriangleMesh::FaceList new_faces;

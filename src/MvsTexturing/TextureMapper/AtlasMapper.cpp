@@ -15,10 +15,10 @@
 #include <util/timer.h>
 
 #include "Base/View.h"
-#include "Base/Settings.h"
 #include "Base/LabelGraph.h"
 #include "Base/TexturePatch.h"
 #include "Base/TextureAtlas.h"
+#include "Utils/Settings.h"
 
 namespace MvsTexturing {
     namespace AtlasMapper {
@@ -399,13 +399,13 @@ namespace MvsTexturing {
         }
 
         /** Create a TexturePatchCandidate by calculating the faces' bounding box
- * projected into the view,
- *  relative texture coordinates and extacting the texture views relevant part
- */
+        * projected into the view,
+        *  relative texture coordinates and extacting the texture views relevant part
+        */
         TexturePatchCandidate
         generate_candidate(int label, Base::TextureView const &texture_view,
                            std::vector<std::size_t> const &faces, mve::TriangleMesh::ConstPtr mesh,
-                           Base::Settings const &settings) {
+                           Settings const &settings) {
 
             mve::ByteImage::Ptr view_image = texture_view.get_image();
             int min_x = view_image->width(), min_y = view_image->height();
@@ -454,7 +454,7 @@ namespace MvsTexturing {
             byte_image = mve::image::crop(view_image, width, height, min_x, min_y, *math::Vec3uc(255, 0, 255));
             mve::FloatImage::Ptr image = mve::image::byte_to_float_image(byte_image);
 
-            if (settings.tone_mapping == Base::TONE_MAPPING_GAMMA) {
+            if (settings.tone_mapping == TONE_MAPPING_GAMMA) {
                 // 涉及到颜色矫正？
                 mve::image::gamma_correct(image, 2.2f);
             }
@@ -467,7 +467,7 @@ namespace MvsTexturing {
 
         void generate_texture_patches(const Base::LabelGraph &graph, mve::TriangleMesh::ConstPtr mesh,
                                       mve::MeshInfo const &mesh_info, std::vector<Base::TextureView> *texture_views,
-                                      const Base::Settings &settings,
+                                      const Settings &settings,
                                       std::vector<std::vector<Base::VertexProjectionInfo>> *vertex_projection_infos,
                                       std::vector<Base::TexturePatch::Ptr> *texture_patches) {
 
@@ -696,7 +696,7 @@ namespace MvsTexturing {
         }
         void
         generate_texture_atlases(std::vector<Base::TexturePatch::Ptr> * orig_texture_patches,
-                                 const Base::Settings &settings,
+                                 const Settings &settings,
                                  std::vector<Base::TextureAtlas::Ptr> *texture_atlases) {
 
             std::list<Base::TexturePatch::ConstPtr> texture_patches;
@@ -704,7 +704,7 @@ namespace MvsTexturing {
                 Base::TexturePatch::Ptr texture_patch = orig_texture_patches->back();
                 orig_texture_patches->pop_back();
 
-                if (settings.tone_mapping != Base::TONE_MAPPING_NONE) {
+                if (settings.tone_mapping != TONE_MAPPING_NONE) {
                     mve::image::gamma_correct(texture_patch->get_image(), 1.0f / 2.2f);
                 }
 

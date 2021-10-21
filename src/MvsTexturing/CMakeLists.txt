@@ -13,4 +13,11 @@ include_directories(${SOURCE_DIR}/MvsTexturing)
 set(MvsTexturingLibrary MvsTexturing-Library)
 add_library(${MvsTexturingLibrary} STATIC ${SOURCES})
 set_property(TARGET ${MvsTexturingLibrary} PROPERTY INTERPROCEDURAL_OPTIMIZATION True)
-target_link_libraries(${MvsTexturingLibrary} mve mve_util ${JPEG_LIBRARIES} ${PNG_LIBRARIES} ${TIFF_LIBRARIES})
+target_include_directories(${MvsTexturingLibrary} PRIVATE
+        ${RAYINT_INCLUDE_DIR}
+        ${OpenMP_CXX_INCLUDE_DIRS})
+target_compile_options(${MvsTexturingLibrary} PRIVATE
+        ${OpenMP_CXX_FLAGS})
+target_link_libraries(${MvsTexturingLibrary}
+        mve mve_util ${JPEG_LIBRARIES} ${PNG_LIBRARIES} ${TIFF_LIBRARIES}
+        OpenMP::OpenMP_CXX)

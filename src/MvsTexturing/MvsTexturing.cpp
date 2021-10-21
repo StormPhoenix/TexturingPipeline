@@ -8,6 +8,5 @@
 
 namespace MvsTexturing {
     void texture_map() {
-        ViewSelection::view_selection();
     }
 }

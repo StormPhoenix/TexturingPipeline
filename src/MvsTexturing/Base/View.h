@@ -12,7 +12,7 @@
 #include <mve/camera.h>
 #include <mve/image.h>
 
-#include "Settings.h"
+#include "Utils/Settings.h"
 
 namespace MvsTexturing {
     namespace Base {

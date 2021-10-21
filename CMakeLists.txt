@@ -4,16 +4,18 @@ project(TexturingPipeline)
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake")
 
-find_package(PNG REQUIRED)
-find_package(JPEG REQUIRED)
-find_package(TIFF REQUIRED)
-
-message(STATUS "Debug jpeg include: ${JPEG_INCLUDE_DIR}, jpeg libraries: ${JPEG_LIBRARIES}")
-message(STATUS "Debug png include: ${PNG_INCLUDE_DIR}, jpeg libraries: ${PNG_LIBRARIES}")
-message(STATUS "Debug tiff include: ${TIFF_INCLUDE_DIR}, jpeg libraries: ${TIFF_LIBRARIES}")
+# Find OpenMP
+find_package(OpenMP REQUIRED)
+if (OpenMP_CXX_FOUND)
+    message(STATUS "Debug OpenMP include: ${OpenMP_CXX_INCLUDE_DIRS}")
+    message(STATUS "Debug OpenMP library: ${OpenMP_CXX_LIBRARIES}")
+    message(STATUS "Debug OpenMP C++_flags: ${OpenMP_CXX_FLAGS}")
+    link_libraries(OpenMP::OpenMP_CXX)
+    OPTION(USE_OpenMP "Use OpenMP to enamble <omp.h>" ON)
+endif (OpenMP_CXX_FOUND)
 
 find_package(Boost 1.65 COMPONENTS program_options thread REQUIRED)
-foreach (PackageName GMP MPFR Ceres)
+foreach (PackageName GMP MPFR Ceres PNG JPEG TIFF TBB)
     find_package(${PackageName} REQUIRED)
     if (${PackageName}_FOUND)
         message(STATUS "NOTICE: ${PackageName} library is found.")
@@ -21,6 +23,12 @@ foreach (PackageName GMP MPFR Ceres)
         message(STATUS "NOTICE: ${PackageName} library is not found.")
     endif ()
 endforeach (PackageName)
+
+#message(STATUS "Debug TBB root: ${TBB_ROOT_DIR}")
+#message(STATUS "Debug TBB include: ${TBB_INCLUDE_DIRS}, TBB library: ${TBB_LIBRARIES}")
+#message(STATUS "Debug TBB include: ${TBB_INCLUDE_DIR}, TBB library: ${TBB_LIBRARY}")
+#message(STATUS "Debug TBB library: ${TBB_LIBRARIES_DEBUG}")
+#message(STATUS "Debug TBB library: ${TBB_LIBRARIES_RELEASE}")
 
 find_package(CGAL 5.2.1)
 include(FetchContent)
@@ -43,17 +51,18 @@ if (NOT CGAL_FOUND)
 endif (NOT CGAL_FOUND)
 
 set(EIGEN3_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/external/eigen3)
+
 set(LIBIGL_DIR ${PROJECT_SOURCE_DIR}/external/libigl)
 set(LIBIGL_INCLUDE_DIR ${LIBIGL_DIR}/include)
-set(TINYPLY_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/external/tinyply/source)
+
+set(TINYPLY_Src ${PROJECT_SOURCE_DIR}/external/tinyply)
+set(TINYPLY_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/source)
+
 set(MVE_Src ${PROJECT_SOURCE_DIR}/external/mve)
 set(MVE_INCLUDE_DIR ${MVE_Src}/libs)
 
-message(STATUS "DEBUG gmp include: ${GMP_INCLUDE_DIR}, gmp lib: ${GMP_LIBRARIES}")
-message(STATUS "DEBUG mpfr include: ${MPFR_INCLUDE_DIR}, mpfr lib: ${MPFR_LIBRARIES}")
-message(STATUS "DEBUG Boost include: ${Boost_INCLUDE_DIR}")
-message(STATUS "DEBUG CGAL include: ${CGAL_INCLUDE_DIRS}")
-message(STATUS "DEBUG eigen3 include: ${EIGEN3_INCLUDE_DIR}")
+set(RAYINT_Src ${PROJECT_SOURCE_DIR}/external/rayint)
+set(RAYINT_INCLUDE_DIR ${RAYINT_Src}/libs)
 
 set(SOURCE_DIR "${PROJECT_SOURCE_DIR}/src")
 

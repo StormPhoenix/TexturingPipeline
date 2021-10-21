@@ -3,9 +3,11 @@ project(testMvsTexturing)
 
 set(CMAKE_CXX_STANDARD 14)
 
+file(GLOB_RECURSE SOURCES ./*.h ./*.hpp ./*.cpp ./*.c)
+
 include_directories(${SOURCE_DIR}/MvsTexturing)
 
-add_executable(${PROJECT_NAME} main.cpp)
+add_executable(${PROJECT_NAME} ${SOURCES})
 target_include_directories(${PROJECT_NAME} PRIVATE
         ${MVE_INCLUDE_DIR})
 target_link_libraries(${PROJECT_NAME}
