@@ -20,6 +20,8 @@
 #include "Base/TextureAtlas.h"
 #include "Utils/Settings.h"
 
+#include "MvsTexturing.h"
+
 namespace MvsTexturing {
     namespace AtlasMapper {
 #define MAX_HOLE_NUM_FACES 100
@@ -53,7 +55,7 @@ namespace MvsTexturing {
         };
 
         bool fill_hole(std::vector<std::size_t> const &hole, const Base::LabelGraph &graph,
-                       mve::TriangleMesh::ConstPtr mesh, mve::MeshInfo const &mesh_info,
+                       MeshConstPtr mesh, const MeshInfo &mesh_info,
                        std::vector<std::vector<Base::VertexProjectionInfo> > *vertex_projection_infos,
                        std::vector<Base::TexturePatch::Ptr> *texture_patches) {
 
@@ -404,7 +406,7 @@ namespace MvsTexturing {
         */
         TexturePatchCandidate
         generate_candidate(int label, Base::TextureView const &texture_view,
-                           std::vector<std::size_t> const &faces, mve::TriangleMesh::ConstPtr mesh,
+                           std::vector<std::size_t> const &faces, MeshConstPtr mesh,
                            Settings const &settings) {
 
             mve::ByteImage::Ptr view_image = texture_view.get_image();
@@ -465,8 +467,8 @@ namespace MvsTexturing {
             return texture_patch_candidate;
         }
 
-        void generate_texture_patches(const Base::LabelGraph &graph, mve::TriangleMesh::ConstPtr mesh,
-                                      mve::MeshInfo const &mesh_info, std::vector<Base::TextureView> *texture_views,
+        void generate_texture_patches(const Base::LabelGraph &graph, MeshConstPtr mesh,
+                                      const MeshInfo &mesh_info, std::vector<Base::TextureView> *texture_views,
                                       const Settings &settings,
                                       std::vector<std::vector<Base::VertexProjectionInfo>> *vertex_projection_infos,
                                       std::vector<Base::TexturePatch::Ptr> *texture_patches) {
@@ -637,8 +639,7 @@ namespace MvsTexturing {
   * @warning asserts that no texture patch exceeds the dimensions
   * of the maximal possible texture atlas size.
   */
-        unsigned int
-        calculate_texture_size(std::list<Base::TexturePatch::ConstPtr> const & texture_patches) {
+        unsigned int calculate_texture_size(const std::list<Base::TexturePatch::ConstPtr> &texture_patches) {
             unsigned int size = MAX_TEXTURE_SIZE;
 
             while (true) {
@@ -694,17 +695,21 @@ namespace MvsTexturing {
         bool comp(Base::TexturePatch::ConstPtr first, Base::TexturePatch::ConstPtr second) {
             return first->get_size() > second->get_size();
         }
-        void
-        generate_texture_atlases(std::vector<Base::TexturePatch::Ptr> * orig_texture_patches,
-                                 const Settings &settings,
-                                 std::vector<Base::TextureAtlas::Ptr> *texture_atlases) {
 
+        void generate_texture_atlases(std::vector<Base::TexturePatch::Ptr> *orig_texture_patches,
+                                 std::vector<Base::TextureAtlas::Ptr> *texture_atlases,
+                                 bool tone_mapping = false) {
             std::list<Base::TexturePatch::ConstPtr> texture_patches;
             while (!orig_texture_patches->empty()) {
                 Base::TexturePatch::Ptr texture_patch = orig_texture_patches->back();
                 orig_texture_patches->pop_back();
 
+                /* TODO consider more tone_mapping types ??？
                 if (settings.tone_mapping != TONE_MAPPING_NONE) {
+                    mve::image::gamma_correct(texture_patch->get_image(), 1.0f / 2.2f);
+                }
+                 */
+                if (tone_mapping) {
                     mve::image::gamma_correct(texture_patch->get_image(), 1.0f / 2.2f);
                 }
 
@@ -725,7 +730,6 @@ namespace MvsTexturing {
             {
 #pragma omp single
                 {
-
                     while (!texture_patches.empty()) {
                         unsigned int texture_size = calculate_texture_size(texture_patches);
 

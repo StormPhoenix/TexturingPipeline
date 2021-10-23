@@ -16,12 +16,14 @@
 #include "Utils/ProgressCounter.h"
 #include "PhotoConsistencyCheck.h"
 
+#include "MvsTexturing.h"
+
 namespace MvsTexturing {
     namespace ViewSelection {
         typedef acc::BVHTree<unsigned int, math::Vec3f> BVHTree;
         typedef std::vector<std::vector<Base::FaceProjectionInfo>> FaceProjectionInfos;
 
-        void calculate_face_projection_infos(mve::TriangleMesh::ConstPtr mesh, BVHTree &bvh_tree,
+        void calculate_face_projection_infos(MeshConstPtr mesh, BVHTree &bvh_tree,
                                              std::vector<Base::TextureView> *texture_views,
                                              const MvsTexturing::Settings &settings,
                                              FaceProjectionInfos *face_projection_infos) {
@@ -142,7 +144,7 @@ namespace MvsTexturing {
             }
         }
 
-        void compute_face_camera_photometric(mve::TriangleMesh::ConstPtr mesh,
+        void compute_face_camera_photometric(MeshConstPtr mesh,
                                              std::vector<Base::TextureView> &texture_views,
                                              std::vector<std::set<std::size_t>> &face_visibility_sets,
                                              const Settings &settings) {

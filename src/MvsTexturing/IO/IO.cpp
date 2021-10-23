@@ -24,7 +24,7 @@ namespace MvsTexturing {
                 return mve::geom::load_ply_mesh(in_mesh);
             }
 
-            void save_obj_mesh(const std::string &filename, mve::TriangleMesh::Ptr mesh,
+            void save_obj_mesh(const std::string &filename, mve::TriangleMesh::ConstPtr mesh,
                                const std::vector<Base::TextureAtlas::Ptr> &texture_atlases) {
                 mve::TriangleMesh::VertexList const &mesh_vertices = mesh->get_vertices();
                 mve::TriangleMesh::NormalList const &mesh_normals = mesh->get_vertex_normals();
@@ -85,7 +85,17 @@ namespace MvsTexturing {
                 }
                 //TODO remove unreferenced vertices/normals.
 
-                Obj::ObjModel::save(obj_model, filename);
+                std::string prefix = "";
+                {
+                    std::size_t dotpos = filename.find_last_of('.');
+                    if (dotpos == std::string::npos) {
+                        prefix = filename;
+                    } else {
+                        prefix = filename.substr(0, dotpos);
+                    }
+                }
+
+                Obj::ObjModel::save(obj_model, prefix);
             }
         }
     }

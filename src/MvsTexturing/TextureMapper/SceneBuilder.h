@@ -7,6 +7,9 @@
 
 #include <vector>
 #include <Base/View.h>
+#include <Base/LabelGraph.h>
+#include <mve/mesh.h>
+#include <mve/mesh_info.h>
 
 namespace MvsTexturing {
     namespace Builder {

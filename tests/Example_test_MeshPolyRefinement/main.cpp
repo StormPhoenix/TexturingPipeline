@@ -1,23 +1,14 @@
-#include <Eigen/Dense>
-#include <Eigen/Core>
-#include <Eigen/Sparse>
 
 #include <iostream>
 
-#include <igl/decimate.h>
-#include <igl/collapse_edge.h>
-#include <igl/cotmatrix.h>
-
 #include <boost/program_options.hpp>
 
+#define TINYPLY_IMPLEMENTATION
 #include <Base/TriMesh.h>
 #include <PlaneEstimation/RegionGrowing.h>
 #include <PlaneEstimation/RegionExpand.h>
 #include <DataIO/Repair.h>
 #include <DataIO/IO.h>
-
-#define TINYPLY_IMPLEMENTATION
-#include <tinyply.h>
 
 int main(int argc, char *argv[]) {
     namespace bpo = boost::program_options;

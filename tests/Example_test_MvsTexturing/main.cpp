@@ -4,16 +4,7 @@
 #include <iostream>
 #include <set>
 
-#include <mve/mesh_info.h>
-#include <util/system.h>
-#include <util/file_system.h>
-
-#include <IO/IO.h>
-#include <Base/View.h>
-#include <Base/LabelGraph.h>
-#include <Utils/Timer.h>
-#include <TextureMapper/SceneBuilder.h>
-#include <TextureMapper/ViewSelection.h>
+#include <MvsTexturing.h>
 
 #include "Arguments.h"
 
@@ -31,7 +22,8 @@ int main(int argc, char **argv) {
 
     using namespace MvsTexturing;
     // Read mesh files
-    mve::TriangleMesh::Ptr mesh;
+    std::cout << "\n### Load mesh " << std::endl;
+    MeshPtr mesh;
     try {
         mesh = IO::MVE::load_ply_mesh(conf.in_mesh);
     } catch (std::exception &e) {
@@ -41,7 +33,7 @@ int main(int argc, char **argv) {
     assert(mesh->get_faces().size() % 3 == 0);
 
     // Build 3d scene
-    mve::MeshInfo mesh_info(mesh);
+    MeshInfo mesh_info(mesh);
     Builder::MVE::prepare_mesh(&mesh_info, mesh);
 
     // Create temporary directory
@@ -56,16 +48,17 @@ int main(int argc, char **argv) {
     }
 
     // Read camera images
-    std::cout << "### Read camera images " << std::endl;
+    std::cout << "\n### Read camera images " << std::endl;
     std::vector<Base::TextureView> texture_views;
     Builder::build_scene(conf.in_scene, &texture_views, temp_dir);
 
     // Build adjacency graph
+    std::cout << "\n### Build adjacency graph " << std::endl;
     std::size_t const n_faces = mesh->get_faces().size() / 3;
     Base::LabelGraph graph(n_faces);
     Builder::MVE::build_adjacency_graph(mesh, mesh_info, &graph);
 
-    std::cout << "### View selection " << std::endl;
+    std::cout << "\n### View selection " << std::endl;
     {
         // Running projection algorithms
         std::cout << "\tRunning projection algorithm ... " << std::endl;

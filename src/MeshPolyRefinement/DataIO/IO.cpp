@@ -271,12 +271,8 @@ namespace MeshPolyRefinement {
 					}
 				}
 				//read triangles
-
 				mesh.m_faces.resize(faces->count,3);
 				memcpy(mesh.m_faces.data(),faces->buffer.get(),faces->buffer.size_bytes());
-
-				
-
 			}
 			catch (const std::exception & e)
     		{

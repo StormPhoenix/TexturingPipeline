@@ -14,8 +14,8 @@
 
 namespace MvsTexturing {
     namespace Base {
-        TexturePatch::TexturePatch(int label, std::vector<std::size_t> const & faces,
-                                   std::vector<math::Vec2f>  const & texcoords, mve::FloatImage::Ptr image)
+        TexturePatch::TexturePatch(int label, std::vector<std::size_t> const &faces,
+                                   std::vector<math::Vec2f>  const &texcoords, mve::FloatImage::Ptr image)
                 : label(label), faces(faces), texcoords(texcoords), image(image) {
 
             validity_mask = mve::ByteImage::create(get_width(), get_height(), 1);
@@ -58,6 +58,18 @@ namespace MvsTexturing {
                 int const min_y = static_cast<int>(std::floor(aabb.min_y)) - texture_patch_border;
                 int const max_x = static_cast<int>(std::ceil(aabb.max_x)) + texture_patch_border;
                 int const max_y = static_cast<int>(std::ceil(aabb.max_y)) + texture_patch_border;
+
+                // TODO
+                /*
+                if (0 > min_x || max_x > get_width()) {
+                    std::cout << "Debug min_x: " << min_x << " max_x: " << max_x << std::endl;
+                }
+
+                if (0 > min_y || max_y > get_height()) {
+                    std::cout << "Debug min_y: " << min_y << " max_y: " << max_y << std::endl;
+                }
+                 */
+
                 assert(0 <= min_x && max_x <= get_width());
                 assert(0 <= min_y && max_y <= get_height());
 

@@ -4,9 +4,5 @@
 
 #include "MvsTexturing.h"
 
-#include <TextureMapper/ViewSelection.h>
-
 namespace MvsTexturing {
-    void texture_map() {
-    }
 }
