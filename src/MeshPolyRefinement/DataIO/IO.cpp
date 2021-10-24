@@ -193,8 +193,7 @@ namespace MeshPolyRefinement {
 					Base::FaceSemanticLabel l2 = vertex_labels[mesh.m_faces(face_index, 2)];
 					if (l0 == l1 && l1 == l2) {
 						mesh.m_face_labels(face_index) = l0;
-					}
-					else {
+					} else {
 						mesh.m_face_labels(face_index) = Base::FaceSemanticLabel::MULTILABELED;
 					}
 				};
@@ -204,21 +203,62 @@ namespace MeshPolyRefinement {
 			}
 		}
 
-		bool read_mesh_from_ply(const std::string& file_name, Base::TriMesh& mesh){
+		bool read_mesh_from_memory(const std::vector<double> &vertices,
+								   const std::vector<std::size_t> &faces,
+								   Base::TriMesh &mesh) {
+			if (vertices.size() % 3 != 0 || faces.size() % 3 != 0) {
+				return false;
+			}
+
+			Base::AttributeMatrix eigen_vertices(vertices.size() / 3, 3);
+			for (int i = 0; i < vertices.size(); i += 3) {
+				for (int j = 0; j < 3; j++) {
+					eigen_vertices(i / 3, j) = vertices[i + j];
+				}
+			}
+
+			Base::IndexMatrix eigen_faces(faces.size() / 3, 3);
+			for (int f_i = 0; f_i < faces.size(); f_i += 3) {
+				for (int j = 0; j < 3; j++) {
+					eigen_faces(f_i / 3, j) = faces[f_i + j];
+				}
+			}
+
+			mesh.m_vertices = eigen_vertices.cast<Base::Scalar>();
+			mesh.m_faces = eigen_faces;
+			IO::build_mesh(mesh);
+			return true;
+		}
+
+		bool read_mesh_from_ply(const std::string &file_name, Base::TriMesh &mesh) {
 			using namespace tinyply;
-			struct float2 { float x, y; };
-			struct float3 { float x, y, z; };
-			struct double3 { double x, y, z; };
-			struct int3 {int32_t x,y,z;};
-			struct uint3 { uint32_t x, y, z; };
-			struct uint4 { uint32_t x, y, z, w; };
-			struct uchar3 { 
-				uint8_t r, g, b; 
+			struct float2 {
+				float x, y;
+			};
+			struct float3 {
+				float x, y, z;
+			};
+			struct double3 {
+				double x, y, z;
+			};
+			struct int3 {
+				int32_t x, y, z;
+			};
+			struct uint3 {
+				uint32_t x, y, z;
+			};
+			struct uint4 {
+				uint32_t x, y, z, w;
+			};
+			struct uchar3 {
+				uint8_t r, g, b;
+
 				uchar3() {
 					r = g = b = 0;
 				}
+
 				uchar3(uint8_t r_, uint8_t g_, uint8_t b_)
-					:r(r_),g(g_),b(b_){}
+						: r(r_), g(g_), b(b_) {}
 			};
 
 			
@@ -363,6 +403,7 @@ namespace MeshPolyRefinement {
 				tinyply::Type::UINT8, geom.triangle_colors.size(), reinterpret_cast<uint8_t*>(geom.triangle_colors.data()), tinyply::Type::INVALID, 0);
 
 			geom_file.write(outstream_binary, true);
+			return true;
 		}
 
 		bool save_mesh_plane_segments(const std::string& file_name, const Base::TriMesh& mesh) {

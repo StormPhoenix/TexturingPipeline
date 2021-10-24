@@ -2,11 +2,13 @@
 // Created by Storm Phoenix on 2021/10/22.
 //
 #include <iostream>
+#include <fstream>
 
 #include <boost/program_options.hpp>
 
-#include <mve/mesh_io_ply.h>
 #include <mve/image.h>
+#include <mve/image_io.h>
+#include <mve/mesh_io_ply.h>
 
 #define TINYPLY_IMPLEMENTATION
 
@@ -23,23 +25,25 @@
 #include <TextureMapper/AtlasMapper.h>
 
 #include <util/timer.h>
+
 #include "RemeshingUtils.h"
 
 #define PLANE_DENSITY 300
 
+// TODO delete
+#include <util/file_system.h>
+
 // TODO Rename
 bool texture_patches_from_group(const MeshPolyRefinement::Base::TriMesh &mesh,
                                 std::vector<MvsTexturing::Base::TexturePatch::Ptr> &texture_patches,
+                                std::vector<math::Vec2f> &global_texcoords,
+                                std::vector<std::size_t> &global_texcoord_ids,
+                                std::vector<std::string> &face_materials,
+                                std::map<std::string, mve::ByteImage::Ptr> &material_image_map,
                                 int padding_pixels = 10) {
     using namespace MeshPolyRefinement;
     for (std::size_t g_idx = 0; g_idx < mesh.m_plane_groups.size(); g_idx++) {
         const Base::PlaneGroup &group = mesh.m_plane_groups[g_idx];
-
-//        std::cout << "Debug m_x_axis: " << group.m_x_axis << std::endl;
-//        std::cout << "Debug m_x_axis len: " <<
-//        group.m_x_axis[0] * group.m_x_axis[0]
-//        + group.m_x_axis[1] * group.m_x_axis[1]
-//        + group.m_x_axis[2] * group.m_x_axis[2] << std::endl;
 
         // Compute 3D uv
         Base::Scalar max_dx, min_dx = 0;
@@ -57,23 +61,8 @@ bool texture_patches_from_group(const MeshPolyRefinement::Base::TriMesh &mesh,
             Base::Vec3 d0 = points_3.row(0) - group.m_plane_center;
             Base::Vec3 d1 = points_3.row(1) - group.m_plane_center;
             Base::Vec3 d2 = points_3.row(2) - group.m_plane_center;
-//            std::cout << "Debug p0: " << p0 << std::endl;
-//            std::cout << "Debug p1: " << p1 << std::endl;
-//            std::cout << "Debug p2: " << p2 << std::endl;
 
             Base::Scalar dx0 = d0.dot(group.m_x_axis);
-
-            /*
-            std::cout << "Debug d0       : " << d0 << std::endl;
-            std::cout << "Debug m_x_axis : " << group.m_x_axis << std::endl;
-            std::cout << "Debug manual   : \n" << d0(0, 0) * group.m_x_axis(0, 0) +
-                                                  d0(0, 1) * group.m_x_axis(0, 1) +
-                                                  d0(0, 2) * group.m_x_axis(0, 2) << std::endl;
-            std::cout << "Debug dot  - " << d0.dot(group.m_x_axis.transpose()) << std::endl;
-            std::cout << "Debug dot T- " << d0.dot(group.m_x_axis) << std::endl;
-            std::cout << "Debug T *  - " << d0 * group.m_x_axis.transpose() << std::endl;
-             */
-//            std::cout << "Debug T    - " << d0 * group.m_x_axis << std::endl;
 
             Base::Scalar dx1 = d1.dot(group.m_x_axis);
             Base::Scalar dx2 = d2.dot(group.m_x_axis);
@@ -93,18 +82,15 @@ bool texture_patches_from_group(const MeshPolyRefinement::Base::TriMesh &mesh,
             texcoords[f_i * 3 + 2] = {dx2, dy2};
         }
 
-//        std::cout << "Debug dxy: \n" << "min_dx: " << min_dx << " max_dx: " << max_dx << std::endl;
-//        std::cout << "min_dy: " << min_dy << " max_dy: " << max_dy << std::endl;
         Base::Scalar d_width = max_dx - min_dx;
         Base::Scalar d_height = max_dy - min_dy;
-        // TODO debug comment
-//        std::cout << "Debug plane size: d_width: " << d_width << " , d_height: " << d_height << std::endl;
 
         // Create images
         std::size_t image_width = d_width * PLANE_DENSITY + 2 * padding_pixels;
         std::size_t image_height = d_height * PLANE_DENSITY + 2 * padding_pixels;
         mve::FloatImage::Ptr patch_image = mve::FloatImage::create(image_width, image_height, 3);
 
+        // TODO delete
         float random_color[3];
         Eigen::RowVector3d color = 0.5 * Eigen::RowVector3d::Random() + Eigen::RowVector3d(0.5, 0.5, 0.5);
         random_color[0] = double(color(0));
@@ -115,12 +101,9 @@ bool texture_patches_from_group(const MeshPolyRefinement::Base::TriMesh &mesh,
 
         // Re-scale texture coords
         double padding = double(padding_pixels) / PLANE_DENSITY;
-        // TODO uncomment
 #pragma omp parallel for schedule(dynamic)
         for (std::size_t i = 0; i < texcoords.size(); i++) {
             if ((texcoords[i][0] - min_dx + padding) < 0 || (texcoords[i][1] - min_dy + padding) < 0 ){
-//                (texcoords[f_i * 3 + 1][0] - min_dx) < 0 || (texcoords[f_i * 3 + 1][1] - min_dy) < 0 ||
-//                (texcoords[f_i * 3 + 2][0] - min_dx) < 0 || (texcoords[f_i * 3 + 2][1] - min_dy) < 0) {
                 std::cout << "Debug coord: \n\t" << texcoords[i][0] << ", " << texcoords[i][1] << std::endl;
                 std::cout << "\t" << min_dx << ", " << min_dy << std::endl;
                 std::cout << "\t" << texcoords[i][0] - min_dx << ", " << texcoords[i][1] - min_dy << std::endl;
@@ -133,66 +116,68 @@ bool texture_patches_from_group(const MeshPolyRefinement::Base::TriMesh &mesh,
             if (texcoords[i][0] < 0 || texcoords[i][1] < 0) {
                 std::cout << "Debug: vt0 " << texcoords[i][0] << " vt1 " << texcoords[i][1] << std::endl;
             }
-            /*
-            texcoords[i][0] -= min_dx;
-            texcoords[i][1] -= min_dy;
-            if (texcoords[i][0] < 0 || texcoords[i][1] < 0) {
-                std::cout << "Debug: vt0 " << texcoords[i][0] << " vt1 " << texcoords[i][1] << std::endl;
+        }
+
+        // Copy src images
+        for (std::size_t i = 0; i < texcoords.size(); i += 3) {
+            std::size_t f_i = i / 3;
+            std::size_t f_idx = group.m_indices[f_i];
+
+            mve::ByteImage::Ptr src_image = material_image_map[face_materials[f_idx]];
+            const int src_width = src_image->width();
+            const int src_height = src_image->height();
+
+            math::Vec2f src_v1 = global_texcoords[global_texcoord_ids[f_idx * 3 + 0]];
+            src_v1[0] *= src_width;
+            src_v1[1] *= src_height;
+
+            math::Vec2f src_v2 = global_texcoords[global_texcoord_ids[f_idx * 3 + 1]];
+            src_v2[0] *= src_width;
+            src_v2[1] *= src_height;
+
+            math::Vec2f src_v3 = global_texcoords[global_texcoord_ids[f_idx * 3 + 2]];
+            src_v3[0] *= src_width;
+            src_v3[1] *= src_height;
+
+            using namespace MvsTexturing;
+
+            math::Vec2f v1 = texcoords[i];
+            math::Vec2f v2 = texcoords[i + 1];
+            math::Vec2f v3 = texcoords[i + 2];
+            Math::Tri2D tri(v1, v2, v3);
+            float area = tri.get_area();
+            if (area < std::numeric_limits<float>::epsilon()) { continue; }
+
+            Math::Rect2D<float> aabb = tri.get_aabb();
+            int const min_tri_x = static_cast<int>(std::floor(aabb.min_x));
+            int const min_tri_y = static_cast<int>(std::floor(aabb.min_y));
+            int const max_tri_x = static_cast<int>(std::ceil(aabb.max_x));
+            int const max_tri_y = static_cast<int>(std::ceil(aabb.max_y));
+
+#pragma omp parallel for schedule(dynamic)
+            for (std::size_t x = min_tri_x; x <= max_tri_x; x++) {
+                for (std::size_t y = min_tri_y; y <= max_tri_y; y++) {
+                    math::Vec3f bcoords = tri.get_barycentric_coords(x, y);
+                    if (bcoords.minimum() >= 0.0f) {
+                        math::Vec2f src_coord = {
+                                src_v1[0] * bcoords[0] + src_v2[0] * bcoords[1] + src_v3[0] * bcoords[2],
+                                src_v1[1] * bcoords[0] + src_v2[1] * bcoords[1] + src_v3[1] * bcoords[2]
+                        };
+                        for (int c = 0; c < 3; c++) {
+                            unsigned char src_color = src_image->at(src_coord[0], src_coord[1], c);
+                            patch_image->at(x, y, c) = std::min(1.0f, std::max(0.0f, ((float) src_color) / 255.0f));
+                        }
+                    } else {
+                        continue;
+                    }
+                }
             }
-             */
         }
 
         // Create texture patch
         MvsTexturing::Base::TexturePatch::Ptr patch = MvsTexturing::Base::TexturePatch::create(0, group.m_indices,
                                                                                                texcoords, patch_image);
         texture_patches.push_back(patch);
-        /*
-        Base::Vec3 bottom_left_p = group.m_plane_center + (group.m_x_axis * min_dx)
-                                   + (group.m_y_axis * min_dy);
-
-        std::vector<math::Vec2d> texcoords;
-        texcoords.resize(group.m_indices.size() * 3);
-        for (std::size_t f_i = 0; f_i < group.m_indices.size(); f_i++) {
-            std::size_t face_idx = group.m_indices[f_i];
-            Base::AttributeMatrix points_3 = mesh.m_vertices(mesh.m_faces.row(face_idx), Eigen::all);
-            Base::AttributeMatrix rel_points3 = points_3.rowwise() - bottom_left_p;
-            Base::AttributeMatrix offset_x = rel_points3 * group.m_x_axis.transpose();
-            Base::AttributeMatrix offset_y = rel_points3 * group.m_y_axis.transpose();
-
-            // TODO 检查 Eigen 数组操作
-            texcoords[f_i * 3 + 0] = {offset_x(0, 0), offset_y(0, 0)};
-            texcoords[f_i * 3 + 1] = {offset_x(1, 0), offset_y(1, 0)};
-            texcoords[f_i * 3 + 2] = {offset_x(2, 0), offset_y(2, 0)};
-
-//            std::cout << "Debug offset_x: " << offset_x << std::endl;
-//            std::cout << "Debug offset_y: " << offset_y << std::endl;
-
-            // TODO Debug 检查 mvs-texturing 的 TexturePatch 的 Faces\Texcoords 的大小是否匹配（匹配）
-            // TODO Debug 检查 TexturePatch 的 Faces 保存的是不是 face_idx（是）
-            // TODO Debug 检查 TexturePatch 的 texcoords 保存的坐标是什么坐标系的（纹理图像坐标系）
-            //      TexturePatch 数值上是像素坐标系；被插入到 TextureAtlas 后被转化到 [0, 1] 区间
-
-//            std::cout << "Debug points_3: \n" << points_3 << std::endl;
-//            std::cout << "Debug x_axis: \n" << group.m_x_axis << std::endl;
-//            std::cout << "Debug (points_3 - x_axis): \n"
-//                      << (points_3.rowwise() - group.m_x_axis) << std::endl;
-//
-//            std::cout << "Debug (points_3 - m_x_axis) * (x_axis.transpose): \n"
-//                      << (points_3.rowwise() - group.m_x_axis) * (group.m_x_axis.transpose())
-//                      << std::endl;
-//
-//            std::cout << "Debug (points_3 - m_x_axis) dot (x_axis.transpose): \n"
-//                      << (points_3.rowwise() - group.m_x_axis).dot(group.m_x_axis.transpose())
-//                      << std::endl;
-
-            // Check correction
-//            Base::AttributeMatrix offset = (points_3.rowwise() - group.m_plane_center);
-//            std::cout << "Debug multiplication correction: \n"
-//                      << (offset(1, 0) * group.m_x_axis(0, 0)
-//                          + offset(1, 1) * group.m_x_axis(0, 1)
-//                          + offset(1, 2) * group.m_x_axis(0, 2)) << std::endl;
-        }
-         */
     }
     return true;
 }
@@ -224,17 +209,33 @@ int main(int argc, char **argv) {
     const std::string in_mesh_path = vm["input_mesh"].as<std::string>();
     const std::string out_mesh_path = vm["output_mesh"].as<std::string>();
 
-    // TODO delete
-    std::cout << in_mesh_path << std::endl;
+
+    std::vector<math::Vec3f> mesh_vertices;
+    std::vector<math::Vec3f> mesh_normals;
+    std::vector<math::Vec2f> mesh_texcoords;
+    std::vector<std::size_t> mesh_faces;
+    std::vector<std::size_t> mesh_normal_ids, mesh_texcoord_ids;
+    std::vector<std::string> face_materials;
+    std::map<std::string, std::string> material_map;
+
+    MvsTexturing::IO::load_mesh_from_obj(in_mesh_path, mesh_vertices, mesh_normals, mesh_texcoords,
+                                         mesh_faces, mesh_normal_ids, mesh_texcoord_ids,
+                                         face_materials, material_map);
+
+    MeshPolyRefinement::Base::TriMesh mesh;
+    {
+        std::vector<double> tmp_vertices(mesh_vertices.size() * 3);
+        for (int i = 0; i < mesh_vertices.size(); i++) {
+            for (int j = 0; j < 3; j++) {
+                tmp_vertices[i * 3 + j] = mesh_vertices[i][j];
+            }
+        }
+
+        MeshPolyRefinement::IO::read_mesh_from_memory(tmp_vertices, mesh_faces, mesh);
+    }
+    std::cout << "Mesh vertices: " << mesh.m_vertices.rows() << " faces: " << mesh.m_faces.rows() << std::endl;
 
     using namespace MeshPolyRefinement;
-    Base::TriMesh mesh;
-    if (!IO::read_mesh_from_ply(in_mesh_path, mesh)) {
-        return 0;
-    } else {
-        std::cout << "Mesh vertices: " << mesh.m_vertices.rows() << " faces: " << mesh.m_faces.rows() << std::endl;
-    }
-
     // Texture remeshing pipeline
     std::cout << "\n### MeshPolyRefinement------Detecting Planes" << std::endl;
     // detect planes on mesh using region-growing
@@ -252,30 +253,32 @@ int main(int argc, char **argv) {
     PlaneEstimation::plane_region_merge(mesh);
 
     // TODO delete
-    IO::repair_non_manifold(mesh);
+//    IO::repair_non_manifold(mesh);
 //    IO::save_mesh_plane_segments(out_mesh_path, mesh);
 
-/*
+    std::cout << "\n### TextureRemeshing------Load Texture images" << std::endl;
+    std::map<std::string, mve::ByteImage::Ptr> material_image_map;
     {
-        // TODO delete
-        // Test mve saving
-        mve::TriangleMesh::Ptr temp_mesh = TextureRemeshing::Utils::triMesh_to_mveMesh(mesh);
-        mve::geom::SavePLYOptions options;
-        options.format_binary = false;
-        options.write_vertex_colors = false;
-        options.write_vertex_normals = true;
-        options.write_face_colors = false;
-        mve::geom::save_ply_mesh(temp_mesh, out_mesh_path, options);
+        util::WallTimer timer;
+        std::cout << "\tLoad images...";
+
+        for (auto it = material_map.begin(); it != material_map.end(); it++) {
+            const std::string image_file_name = it->second;
+            material_image_map[it->first] = mve::image::load_file(image_file_name);
+        }
+
+        std::cout << " done. (Took: " << timer.get_elapsed_sec() << "s)" << std::endl;
     }
-    */
 
     std::cout << "\n### TextureRemeshing------Generate Texture Patches" << std::endl;
     std::vector<MvsTexturing::Base::TexturePatch::Ptr> texture_patches;
     {
+        std::cout << "\tGenerating texture patches..." << std::flush;
         util::WallTimer timer;
         // TODO texture_patch 的生成做并行化
-        std::cout << "\tGenerating texture patches...";
-        texture_patches_from_group(mesh, texture_patches);
+        texture_patches_from_group(mesh, texture_patches,
+                                   mesh_texcoords, mesh_texcoord_ids,
+                                   face_materials, material_image_map);
         std::cout << " done. (Took: " << timer.get_elapsed_sec() << "s)" << std::endl;
 
         timer.reset();
@@ -301,17 +304,6 @@ int main(int argc, char **argv) {
         mve::TriangleMesh::Ptr temp_mesh = TextureRemeshing::Utils::triMesh_to_mveMesh(mesh);
         MvsTexturing::IO::MVE::save_obj_mesh(out_mesh_path, temp_mesh, texture_atlases);
     }
-
-    // 0. Region growing
-    //      如果有区域未增长到怎么办 ？（未增长到的区域暂时不管，uv 用 0 代替）
-    // 1. 确定 plane 形状（plane 里面所有点和 XY-axis 做 cosine 解出 uv）
-    //      区域增长过大，一张图片放不下怎么办？（暂时不考虑。在代码里加上这个 case 判断）
-    //
-    // 2. 生成 plane 对应 texture patch
-    //      face、uv、validity_mask
-    //      mvs-texturing 中的 uv 坐标范围
-    // 3. 合成 texture mask（直接调用 adjust_color() 就好）
-
     std::cout << "Texture remeshing done. " << std::endl;
     return 0;
 }

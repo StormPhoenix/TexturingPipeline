@@ -59,17 +59,6 @@ namespace MvsTexturing {
                 int const max_x = static_cast<int>(std::ceil(aabb.max_x)) + texture_patch_border;
                 int const max_y = static_cast<int>(std::ceil(aabb.max_y)) + texture_patch_border;
 
-                // TODO
-                /*
-                if (0 > min_x || max_x > get_width()) {
-                    std::cout << "Debug min_x: " << min_x << " max_x: " << max_x << std::endl;
-                }
-
-                if (0 > min_y || max_y > get_height()) {
-                    std::cout << "Debug min_y: " << min_y << " max_y: " << max_y << std::endl;
-                }
-                 */
-
                 assert(0 <= min_x && max_x <= get_width());
                 assert(0 <= min_y && max_y <= get_height());
 
