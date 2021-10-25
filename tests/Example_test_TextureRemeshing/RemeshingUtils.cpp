@@ -44,10 +44,10 @@ namespace TextureRemeshing {
         }
 
         bool remeshing_from_plane_groups(const MeshPolyRefinement::Base::TriMesh &mesh,
-                                         std::vector<math::Vec2f> &global_texcoords,
-                                         std::vector<std::size_t> &global_texcoord_ids,
-                                         std::vector<std::string> &face_materials,
-                                         std::map<std::string, mve::ByteImage::Ptr> &material_image_map,
+                                         const std::vector<math::Vec2f> &global_texcoords,
+                                         const std::vector<std::size_t> &global_texcoord_ids,
+                                         const std::vector<std::string> &face_materials,
+                                         const std::map<std::string, mve::ByteImage::Ptr> &material_image_map,
                                          std::vector<MvsTexturing::Base::TexturePatch::Ptr> *texture_patches,
                                          const std::size_t padding_pixels = 10,
                                          const std::size_t plane_density = 300) {
@@ -134,7 +134,7 @@ namespace TextureRemeshing {
                     std::size_t f_i = i / 3;
                     std::size_t f_idx = group.m_indices[f_i];
 
-                    mve::ByteImage::Ptr src_image = material_image_map[face_materials[f_idx]];
+                    mve::ByteImage::ConstPtr src_image = material_image_map.find(face_materials[f_idx])->second;
                     const int src_width = src_image->width();
                     const int src_height = src_image->height();
 
