@@ -23,6 +23,12 @@ namespace MvsTexturing {
     typedef mve::TriangleMesh::Ptr MeshPtr;
     typedef mve::TriangleMesh::ConstPtr MeshConstPtr;
     typedef mve::MeshInfo MeshInfo;
+
+    namespace Base {
+        typedef double Scalar;
+        typedef Eigen::Matrix<Scalar, -1, -1, Eigen::RowMajor> AttributeMatrix;
+        typedef Eigen::Matrix<int, -1, -1, Eigen::RowMajor> IndexMatrix;
+    }
 }
 
 #endif //TEXTURINGPIPELINE_MVSTEXTURING_H
