@@ -18,16 +18,15 @@
 
 namespace MvsTexturing {
     namespace IO {
-        void load_mesh_from_obj(std::string const &filename,
-                                std::vector<math::Vec3f> &V, std::vector<math::Vec3f> &N,
-                                std::vector<math::Vec2f> &T, std::vector<std::size_t> &F,
-                                std::vector<std::size_t> &FN, std::vector<std::size_t> &FT,
-                                std::vector<std::string> &face_materials,
-                                std::map<std::string, std::string> &material_map);
-
         typedef double Scalar;
         typedef Eigen::Matrix<Scalar, -1, -1, Eigen::RowMajor> AttributeMatrix;
         typedef Eigen::Matrix<int, -1, -1, Eigen::RowMajor> IndexMatrix;
+
+        void load_mesh_from_obj(std::string const &filename, std::vector<math::Vec3f> &V,
+                                std::vector<math::Vec3f> &N, std::vector<math::Vec2f> &T,
+                                std::vector<std::size_t> &F, std::vector<std::size_t> &FN,
+                                std::vector<std::size_t> &FT, std::vector<std::string> &face_materials,
+                                std::map<std::string, std::string> &material_map);
 
         bool load_mesh_from_obj(const std::string &filename, AttributeMatrix &V, AttributeMatrix &N,
                                 AttributeMatrix &T, IndexMatrix &F, IndexMatrix &FN, IndexMatrix &FT,
