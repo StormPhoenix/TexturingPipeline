@@ -32,6 +32,9 @@
 // TODO delete
 #include <util/file_system.h>
 
+typedef Eigen::Matrix<double, -1, -1, Eigen::RowMajor> AttributeMatrix;
+typedef Eigen::Matrix<int, -1, -1, Eigen::RowMajor> IndexMatrix;
+
 int main(int argc, char **argv) {
     namespace bpo = boost::program_options;
     bpo::options_description opts("Example test MeshRemeshing options");
@@ -59,29 +62,29 @@ int main(int argc, char **argv) {
     const std::string in_mesh_path = vm["input_mesh"].as<std::string>();
     const std::string out_mesh_path = vm["output_mesh"].as<std::string>();
 
-
-    std::vector<math::Vec3f> mesh_vertices;
-    std::vector<math::Vec3f> mesh_normals;
-    std::vector<math::Vec2f> mesh_texcoords;
-    std::vector<std::size_t> mesh_faces;
-    std::vector<std::size_t> mesh_normal_ids, mesh_texcoord_ids;
+    AttributeMatrix mesh_vertices, mesh_normals, mesh_texcoords;
+    IndexMatrix mesh_faces, mesh_normal_ids, mesh_texcoord_ids;
     std::vector<std::string> face_materials;
-    std::map<std::string, std::string> material_map;
-
-    MvsTexturing::IO::load_mesh_from_obj(in_mesh_path, mesh_vertices, mesh_normals, mesh_texcoords,
-                                         mesh_faces, mesh_normal_ids, mesh_texcoord_ids,
-                                         face_materials, material_map);
+    std::map<std::string, std::string> _material_map;
+    MvsTexturing::IO::load_mesh_from_obj(in_mesh_path, mesh_vertices, mesh_normals, mesh_texcoords, mesh_faces,
+                                         mesh_normal_ids, mesh_texcoord_ids, face_materials, _material_map);
 
     MeshPolyRefinement::Base::TriMesh mesh;
     {
-        std::vector<double> tmp_vertices(mesh_vertices.size() * 3);
-        for (int i = 0; i < mesh_vertices.size(); i++) {
+        std::vector<double> tmp_vertices(mesh_vertices.rows() * 3);
+        for (int i = 0; i < mesh_vertices.rows(); i++) {
             for (int j = 0; j < 3; j++) {
-                tmp_vertices[i * 3 + j] = mesh_vertices[i][j];
+                tmp_vertices[i * 3 + j] = mesh_vertices(i, j);
             }
         }
 
-        MeshPolyRefinement::IO::read_mesh_from_memory(tmp_vertices, mesh_faces, mesh);
+        std::vector<std::size_t> tmp_faces(mesh_faces.rows() * 3);
+        for (int i = 0; i < mesh_faces.rows(); i++) {
+            for (int j = 0; j < 3; j++) {
+                tmp_faces[i * 3 + j] = mesh_faces(i, j);
+            }
+        }
+        MeshPolyRefinement::IO::read_mesh_from_memory(tmp_vertices, tmp_faces, mesh);
     }
     std::cout << "Mesh vertices: " << mesh.m_vertices.rows() << " faces: " << mesh.m_faces.rows() << std::endl;
 
@@ -112,7 +115,7 @@ int main(int argc, char **argv) {
         util::WallTimer timer;
         std::cout << "\tLoad images...";
 
-        for (auto it = material_map.begin(); it != material_map.end(); it++) {
+        for (auto it = _material_map.begin(); it != _material_map.end(); it++) {
             const std::string image_file_name = it->second;
             material_image_map[it->first] = mve::image::load_file(image_file_name);
         }
@@ -139,9 +142,13 @@ int main(int argc, char **argv) {
 
     std::cout << "\n### TextureRemeshing------Write obj model" << std::endl;
     {
+        std::cout << "\tWriting ..." << std::flush;
+        util::WallTimer timer;
         // TODO *.obj 文件写入暂时不添加 vertex_normal
         mve::TriangleMesh::Ptr temp_mesh = TextureRemeshing::Utils::triMesh_to_mveMesh(mesh);
         MvsTexturing::IO::MVE::save_obj_mesh(out_mesh_path, temp_mesh, texture_atlases);
+
+        std::cout << " done. (Took: " << timer.get_elapsed_sec() << "s)" << std::endl;
     }
     std::cout << "Texture remeshing done. " << std::endl;
     return 0;

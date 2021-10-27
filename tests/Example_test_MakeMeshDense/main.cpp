@@ -217,7 +217,7 @@ namespace MakeDense {
     };
 
     bool stop_criteria(std::vector<face> &faces, std::vector<edge_len> &edge_heap) {
-        const double Length_Threshold = 0.02;
+        const double Length_Threshold = 0.5;
         if (edge_heap[0].len < Length_Threshold) {
             return true;
         }
@@ -394,8 +394,6 @@ namespace MakeDense {
         }
         out_F = eigen_faces;
 
-        std::cout << "MakeDense result model - faces: " << out_V.rows() << " vertices: " << out_F.rows() << std::endl;
-
         return;
     }
 }
@@ -420,6 +418,7 @@ int main(int argc, char **argv) {
 
     std::cout << "MakeDense origin model - faces: " << V.rows() << " vertices: " << F.rows() << std::endl;
     MakeDense::make_mesh_dense(V, F, out_V, out_F);
+    std::cout << "MakeDense result model - faces: " << out_V.rows() << " vertices: " << out_F.rows() << std::endl;
 
     MvsTexturing::IO::save_mesh(out_mesh_path, out_V, out_F);
 
