@@ -3,6 +3,7 @@ project(TexturingPipeline)
 
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake")
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
 
 # Find OpenMP
 find_package(OpenMP REQUIRED)
@@ -30,7 +31,7 @@ endforeach (PackageName)
 #message(STATUS "Debug TBB library: ${TBB_LIBRARIES_DEBUG}")
 #message(STATUS "Debug TBB library: ${TBB_LIBRARIES_RELEASE}")
 
-find_package(CGAL 5.2.1)
+find_package(CGAL 5.2.1 REQUIRED)
 include(FetchContent)
 include(ExternalProject)
 
@@ -40,8 +41,9 @@ if (NOT CGAL_FOUND)
     set(CGAL_Build "${CGAL_Src}/build")
     set(CGAL_Install "${PROJECT_SOURCE_DIR}/external_project/CGAL/install")
     set(CGAL_INCLUDE_DIRS "${CGAL_Install}/include")
-    ExternalProject_Add(CGAL
-#            GIT_REPOSITORY  https://github.com/CGAL/cgal.git
+    ExternalProject_Add(External_CGAL
+#            GIT_REPOSITORY  git@github.com:CGAL/cgal.git
+#            GIT_TAG         v5.2.1
             SOURCE_DIR      ${CGAL_Src}
             UPDATE_COMMAND ""
             CONFIGURE_COMMAND mkdir -p ${CGAL_Build} && cd ${CGAL_Build} && cmake .. -DCMAKE_INSTALL_PREFIX=${CGAL_Install} -DCMAKE_BUILD_TYPE=Release

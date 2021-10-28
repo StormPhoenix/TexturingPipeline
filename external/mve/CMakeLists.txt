@@ -50,7 +50,7 @@ add_compile_options(${OpenMP_CXX_FLAGS})
 include_directories(libs)
 
 add_subdirectory(libs)
-add_subdirectory(apps)
+#add_subdirectory(apps)
 #add_subdirectory(tests)
 
 # Install 3rd party libraries

@@ -5,6 +5,7 @@
 #ifndef TEXTURINGPIPELINE_VIEW_H
 #define TEXTURINGPIPELINE_VIEW_H
 
+#include <cassert>
 #include <string>
 #include <vector>
 

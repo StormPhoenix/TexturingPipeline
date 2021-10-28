@@ -5,6 +5,8 @@
 #ifndef TEXTURINGPIPELINE_LABELGRAPH_H
 #define TEXTURINGPIPELINE_LABELGRAPH_H
 
+#include <cassert>
+#include <algorithm>
 #include <vector>
 
 namespace MvsTexturing {

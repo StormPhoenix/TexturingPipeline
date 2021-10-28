@@ -29,9 +29,6 @@
 
 #define PLANE_DENSITY 300
 
-// TODO delete
-#include <util/file_system.h>
-
 typedef Eigen::Matrix<double, -1, -1, Eigen::RowMajor> AttributeMatrix;
 typedef Eigen::Matrix<int, -1, -1, Eigen::RowMajor> IndexMatrix;
 
@@ -126,7 +123,7 @@ int main(int argc, char **argv) {
     std::cout << "\n### TextureRemeshing------Generate Texture Patches" << std::endl;
     std::vector<MvsTexturing::Base::TexturePatch::Ptr> texture_patches;
     {
-        std::cout << "\tGenerating texture patches..." << std::flush;
+        std::cout << "\tGenerating..." << std::flush;
         util::WallTimer timer;
         TextureRemeshing::Utils::remeshing_from_plane_groups(mesh, mesh_texcoords,
                                                              mesh_texcoord_ids, face_materials, material_image_map,

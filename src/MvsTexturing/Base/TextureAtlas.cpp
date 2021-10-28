@@ -16,17 +16,16 @@ namespace MvsTexturing {
     namespace Base {
         TextureAtlas::TextureAtlas(unsigned int size) :
                 size(size), padding(size >> 7), finalized(false) {
-
             bin = RectBin::create(size, size);
             image = mve::ByteImage::create(size, size, 3);
             validity_mask = mve::ByteImage::create(size, size, 1);
         }
 
-/**
-  * Copies the src image into the dest image at the given position,
-  * optionally adding a border.
-  * @warning asserts that the given src image fits into the given dest image.
-  */
+        /**
+        * Copies the src image into the dest image at the given position,
+        * optionally adding a border.
+        * @warning asserts that the given src image fits into the given dest image.
+        */
         void copy_into(mve::ByteImage::ConstPtr src, int x, int y,
                        mve::ByteImage::Ptr dest, int border = 0) {
 
