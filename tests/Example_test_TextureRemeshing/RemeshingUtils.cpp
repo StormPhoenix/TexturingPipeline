@@ -56,8 +56,9 @@ namespace TextureRemeshing {
                                          std::vector<MvsTexturing::Base::TexturePatch::Ptr> *texture_patches,
                                          std::size_t padding_pixels = 10,
                                          const std::size_t plane_density = 300) {
-            padding_pixels = std::max(padding_pixels, std::size_t(2));
+            bool using_materials = (!face_materials.empty()) && (!material_image_map.empty());
 
+            padding_pixels = std::max(padding_pixels, std::size_t(2));
             struct TexCoord {
                 Scalar u, v;
 
@@ -131,12 +132,9 @@ namespace TextureRemeshing {
                 Base::Scalar d_height = max_dy - min_dy;
 
                 // Create images
-                std::size_t image_width = d_width * plane_density + 2 * padding_pixels;
-                std::size_t image_height = d_height * plane_density + 2 * padding_pixels;
+                const std::size_t image_width = d_width * plane_density + 2 * padding_pixels;
+                const std::size_t image_height = d_height * plane_density + 2 * padding_pixels;
                 mve::FloatImage::Ptr patch_image = mve::FloatImage::create(image_width, image_height, 3);
-
-                mve::ByteImage::Ptr patch_mask = mve::ByteImage::create(image_width, image_height, 1);
-                patch_mask->fill(0);
 
                 float random_color[3];
                 Eigen::RowVector3d color = 0.5 * Eigen::RowVector3d::Random() + Eigen::RowVector3d(0.5, 0.5, 0.5);
@@ -162,120 +160,128 @@ namespace TextureRemeshing {
                     texcoords[i][1] = (texcoords[i][1] - min_dy + padding) * plane_density;
                 }
 
-                // Copy src images
-                for (std::size_t i = 0; i < texcoords.size(); i += 3) {
-                    std::size_t f_i = i / 3;
-                    std::size_t f_idx = group.m_indices[f_i];
+                if (using_materials) {
+                    // Copy src images
+                    mve::ByteImage::Ptr patch_mask = mve::ByteImage::create(image_width, image_height, 1);
+                    patch_mask->fill(0);
+                    for (std::size_t i = 0; i < texcoords.size(); i += 3) {
+                        std::size_t f_i = i / 3;
+                        std::size_t f_idx = group.m_indices[f_i];
 
-                    mve::ByteImage::ConstPtr src_image = material_image_map.find(face_materials[f_idx])->second;
-                    const int src_width = src_image->width();
-                    const int src_height = src_image->height();
+                        if (f_idx >= face_materials.size() ||
+                            material_image_map.find(face_materials[f_idx]) == material_image_map.end()) {
+                            continue;
+                        }
+                        mve::ByteImage::ConstPtr src_image = material_image_map.find(face_materials[f_idx])->second;
+                        const int src_width = src_image->width();
+                        const int src_height = src_image->height();
 
-                    TexCoord src_v1;
-                    src_v1[0] = global_texcoords(global_texcoord_ids(f_idx, 0), 0) * Scalar(src_width);
-                    src_v1[1] = global_texcoords(global_texcoord_ids(f_idx, 0), 1) * Scalar(src_height);
+                        TexCoord src_v1;
+                        src_v1[0] = global_texcoords(global_texcoord_ids(f_idx, 0), 0) * Scalar(src_width);
+                        src_v1[1] = global_texcoords(global_texcoord_ids(f_idx, 0), 1) * Scalar(src_height);
 
-                    TexCoord src_v2;
-                    src_v2[0] = global_texcoords(global_texcoord_ids(f_idx, 1), 0) * Scalar(src_width);
-                    src_v2[1] = global_texcoords(global_texcoord_ids(f_idx, 1), 1) * Scalar(src_height);
+                        TexCoord src_v2;
+                        src_v2[0] = global_texcoords(global_texcoord_ids(f_idx, 1), 0) * Scalar(src_width);
+                        src_v2[1] = global_texcoords(global_texcoord_ids(f_idx, 1), 1) * Scalar(src_height);
 
-                    TexCoord src_v3;
-                    src_v3[0] = global_texcoords(global_texcoord_ids(f_idx, 2), 0) * Scalar(src_width);
-                    src_v3[1] = global_texcoords(global_texcoord_ids(f_idx, 2), 1) * Scalar(src_height);
+                        TexCoord src_v3;
+                        src_v3[0] = global_texcoords(global_texcoord_ids(f_idx, 2), 0) * Scalar(src_width);
+                        src_v3[1] = global_texcoords(global_texcoord_ids(f_idx, 2), 1) * Scalar(src_height);
 
-                    using namespace MvsTexturing;
+                        using namespace MvsTexturing;
+                        math::Vec2f dest_v1 = texcoords[i];
+                        math::Vec2f dest_v2 = texcoords[i + 1];
+                        math::Vec2f dest_v3 = texcoords[i + 2];
+                        Math::Tri2D tri(dest_v1, dest_v2, dest_v3);
+                        float area = tri.get_area();
+                        if (area < std::numeric_limits<float>::epsilon()) { continue; }
 
-                    math::Vec2f v1 = texcoords[i];
-                    math::Vec2f v2 = texcoords[i + 1];
-                    math::Vec2f v3 = texcoords[i + 2];
-                    Math::Tri2D tri(v1, v2, v3);
-                    float area = tri.get_area();
-                    if (area < std::numeric_limits<float>::epsilon()) { continue; }
-
-                    Math::Rect2D<float> aabb = tri.get_aabb();
-                    int const min_tri_x = static_cast<int>(std::floor(aabb.min_x));
-                    int const min_tri_y = static_cast<int>(std::floor(aabb.min_y));
-                    int const max_tri_x = static_cast<int>(std::ceil(aabb.max_x));
-                    int const max_tri_y = static_cast<int>(std::ceil(aabb.max_y));
+                        Math::Rect2D<float> aabb = tri.get_aabb();
+                        int const min_tri_x = static_cast<int>(std::floor(aabb.min_x));
+                        int const min_tri_y = static_cast<int>(std::floor(aabb.min_y));
+                        int const max_tri_x = static_cast<int>(std::ceil(aabb.max_x));
+                        int const max_tri_y = static_cast<int>(std::ceil(aabb.max_y));
 
 #pragma omp parallel for schedule(dynamic)
-                    for (std::size_t x = min_tri_x; x <= max_tri_x; x++) {
-                        for (std::size_t y = min_tri_y; y <= max_tri_y; y++) {
-                            math::Vec3f bcoords = tri.get_barycentric_coords(x, y);
-                            if (bcoords.minimum() >= 0.0f) {
-                                math::Vec2f src_coord = {
-                                        src_v1[0] * bcoords[0] + src_v2[0] * bcoords[1] + src_v3[0] * bcoords[2],
-                                        src_v1[1] * bcoords[0] + src_v2[1] * bcoords[1] + src_v3[1] * bcoords[2]
-                                };
-                                for (int c = 0; c < 3; c++) {
-                                    unsigned char src_color = src_image->at(src_coord[0], src_coord[1], c);
-                                    patch_image->at(x, y, c) = std::min(1.0f,
-                                                                        std::max(0.0f, ((float) src_color) / 255.0f));
-                                }
-                                patch_mask->at(x, y, 0) = 255;
-                            } else {
-                                continue;
-                            }
-                        }
-                    }
-                }
-
-                {
-                    std::set<std::pair<int, int>> border_pixels;
-                    // dialect texture patch
-                    for (int epoch = 0; epoch < padding_pixels / 2; epoch++) {
-                        for (int x = 0; x < patch_mask->width(); x++) {
-                            for (int y = 0; y < patch_mask->height(); y++) {
-                                if (patch_mask->at(x, y, 0) == 255) {
+                        for (std::size_t x = min_tri_x; x <= max_tri_x; x++) {
+                            for (std::size_t y = min_tri_y; y <= max_tri_y; y++) {
+                                math::Vec3f bcoords = tri.get_barycentric_coords(x, y);
+                                if (bcoords.minimum() >= 0.0f) {
+                                    math::Vec2f src_coord = {
+                                            src_v1[0] * bcoords[0] + src_v2[0] * bcoords[1] + src_v3[0] * bcoords[2],
+                                            src_v1[1] * bcoords[0] + src_v2[1] * bcoords[1] + src_v3[1] * bcoords[2]
+                                    };
+                                    for (int c = 0; c < 3; c++) {
+                                        unsigned char src_color = src_image->at(src_coord[0], src_coord[1], c);
+                                        patch_image->at(x, y, c) = std::min(1.0f,
+                                                                            std::max(0.0f,
+                                                                                     ((float) src_color) / 255.0f));
+                                    }
+                                    patch_mask->at(x, y, 0) = 255;
+                                } else {
                                     continue;
                                 }
-
-                                for (int j = -1; j <= 1; ++j) {
-                                    for (int i = -1; i <= 1; ++i) {
-                                        int nx = x + i;
-                                        int ny = y + j;
-
-                                        if (0 <= nx && nx < patch_mask->width() &&
-                                            0 <= ny && ny < patch_mask->height() &&
-                                            patch_mask->at(nx, ny, 0) == 255) {
-                                            border_pixels.insert(std::pair<int, int>(x, y));
-                                        }
-                                    }
-                                }
                             }
                         }
-
-                        for (auto it = border_pixels.begin(); it != border_pixels.end(); it++) {
-                            const int x = it->first;
-                            const int y = it->second;
-
-                            for (int c = 0; c < 3; c++) {
-                                float normalize = 0.f;
-                                float value = 0.f;
-                                for (int j = -1; j <= 1; ++j) {
-                                    for (int i = -1; i <= 1; ++i) {
-                                        const int nx = x + i;
-                                        const int ny = y + j;
-
-                                        if (0 <= nx && nx < image_width &&
-                                            0 <= ny && ny < image_height &&
-                                            patch_mask->at(nx, ny, 0) == 255) {
-
-                                            float weight = gauss_mat[(j + 1) * 3 + (i + 1)];
-                                            normalize += weight;
-
-                                            value += (patch_image->at(nx, ny, c) * 255.0f) * weight;
-                                        }
-                                    }
-                                }
-                                patch_image->at(x, y, c) = (value / normalize) / 255.0f;
-                            }
-                            patch_mask->at(x, y, 0) = 255;
-                        }
-                        border_pixels.clear();
                     }
+
+                    {
+                        std::set<std::pair<int, int>> border_pixels;
+                        // dialect texture patch
+                        for (int epoch = 0; epoch < padding_pixels / 2; epoch++) {
+                            for (int x = 0; x < patch_mask->width(); x++) {
+                                for (int y = 0; y < patch_mask->height(); y++) {
+                                    if (patch_mask->at(x, y, 0) == 255) {
+                                        continue;
+                                    }
+
+                                    for (int j = -1; j <= 1; ++j) {
+                                        for (int i = -1; i <= 1; ++i) {
+                                            int nx = x + i;
+                                            int ny = y + j;
+
+                                            if (0 <= nx && nx < patch_mask->width() &&
+                                                0 <= ny && ny < patch_mask->height() &&
+                                                patch_mask->at(nx, ny, 0) == 255) {
+                                                border_pixels.insert(std::pair<int, int>(x, y));
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            for (auto it = border_pixels.begin(); it != border_pixels.end(); it++) {
+                                const int x = it->first;
+                                const int y = it->second;
+
+                                for (int c = 0; c < 3; c++) {
+                                    float normalize = 0.f;
+                                    float value = 0.f;
+                                    for (int j = -1; j <= 1; ++j) {
+                                        for (int i = -1; i <= 1; ++i) {
+                                            const int nx = x + i;
+                                            const int ny = y + j;
+
+                                            if (0 <= nx && nx < image_width &&
+                                                0 <= ny && ny < image_height &&
+                                                patch_mask->at(nx, ny, 0) == 255) {
+
+                                                float weight = gauss_mat[(j + 1) * 3 + (i + 1)];
+                                                normalize += weight;
+
+                                                value += (patch_image->at(nx, ny, c) * 255.0f) * weight;
+                                            }
+                                        }
+                                    }
+                                    patch_image->at(x, y, c) = (value / normalize) / 255.0f;
+                                }
+                                patch_mask->at(x, y, 0) = 255;
+                            }
+                            border_pixels.clear();
+                        }
+                    }
+                    patch_mask.reset();
                 }
-                patch_mask.reset();
 
                 // Create texture patch
                 MvsTexturing::Base::TexturePatch::Ptr patch =
@@ -291,6 +297,18 @@ namespace TextureRemeshing {
             }
 
             return true;
+        }
+
+        bool remeshing_from_plane_groups(const MeshPolyRefinement::Base::TriMesh &mesh,
+                                         const AttributeMatrix &global_texcoords,
+                                         const IndexMatrix &global_texcoord_ids,
+                                         std::vector<MvsTexturing::Base::TexturePatch::Ptr> *texture_patches,
+                                         std::size_t padding_pixels = 10,
+                                         const std::size_t plane_density = 300) {
+            std::vector<std::string> _nop_vec;
+            std::map<std::string, mve::ByteImage::Ptr> _nop_map;
+            return remeshing_from_plane_groups(mesh, global_texcoords, global_texcoord_ids, _nop_vec, _nop_map,
+                                               texture_patches, padding_pixels, plane_density);
         }
     }
 }

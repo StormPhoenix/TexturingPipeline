@@ -63,8 +63,21 @@ int main(int argc, char **argv) {
     IndexMatrix mesh_faces, mesh_normal_ids, mesh_texcoord_ids;
     std::vector<std::string> face_materials;
     std::map<std::string, std::string> _material_map;
-    MvsTexturing::IO::load_mesh_from_obj(in_mesh_path, mesh_vertices, mesh_normals, mesh_texcoords, mesh_faces,
-                                         mesh_normal_ids, mesh_texcoord_ids, face_materials, _material_map);
+
+    std::string extension = "";
+    {
+        std::size_t dotpos = in_mesh_path.find_last_of('.');
+        if (dotpos != std::string::npos) {
+            extension = in_mesh_path.substr(dotpos, in_mesh_path.size());
+        }
+    }
+
+    if (extension == ".ply") {
+        MvsTexturing::IO::load_mesh_from_ply(in_mesh_path, mesh_vertices, mesh_faces);
+    } else if (extension == ".obj") {
+        MvsTexturing::IO::load_mesh_from_obj(in_mesh_path, mesh_vertices, mesh_normals, mesh_texcoords, mesh_faces,
+                                             mesh_normal_ids, mesh_texcoord_ids, face_materials, _material_map);
+    }
 
     MeshPolyRefinement::Base::TriMesh mesh;
     {
@@ -141,7 +154,6 @@ int main(int argc, char **argv) {
     {
         std::cout << "\tWriting ..." << std::flush;
         util::WallTimer timer;
-        // TODO *.obj 文件写入暂时不添加 vertex_normal
         mve::TriangleMesh::Ptr temp_mesh = TextureRemeshing::Utils::triMesh_to_mveMesh(mesh);
         MvsTexturing::IO::MVE::save_obj_mesh(out_mesh_path, temp_mesh, texture_atlases);
 
