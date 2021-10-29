@@ -13,7 +13,6 @@
 #include "Base/View.h"
 #include "Utils/Timer.h"
 #include "Utils/Settings.h"
-#include "Utils/ProgressCounter.h"
 #include "PhotoConsistencyCheck.h"
 
 #include "MvsTexturing.h"
@@ -34,16 +33,12 @@ namespace MvsTexturing {
             std::size_t const num_views = texture_views->size();
 
             util::WallTimer timer;
-            using namespace Utils;
-            ProgressCounter view_counter("\tCalculating face qualities", num_views);
 #pragma omp parallel
             {
                 std::vector<std::pair<std::size_t, Base::FaceProjectionInfo> > projected_face_view_infos;
 
 #pragma omp for schedule(dynamic)
                 for (std::uint16_t j = 0; j < static_cast<std::uint16_t>(num_views); ++j) {
-                    view_counter.progress<SIMPLE>();
-
                     Base::TextureView *texture_view = &texture_views->at(j);
                     texture_view->load_image();
                     texture_view->generate_validity_mask();
@@ -127,7 +122,6 @@ namespace MvsTexturing {
                     if (settings.data_term == DATA_TERM_GMI) {
                         texture_view->release_gradient_magnitude();
                     }
-                    view_counter.inc();
                 }
 
                 //std::sort(projected_face_view_infos.begin(), projected_face_view_infos.end());

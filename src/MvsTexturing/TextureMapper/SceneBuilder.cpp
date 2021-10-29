@@ -4,6 +4,8 @@
 #include <cstring>
 #include <string>
 #include <vector>
+#include <istream>
+#include <fstream>
 
 #include <util/timer.h>
 #include <util/tokenizer.h>
@@ -18,7 +20,6 @@
 
 #include "Base/View.h"
 #include "Base/LabelGraph.h"
-#include "Utils/ProgressCounter.h"
 
 namespace MvsTexturing {
     namespace Builder {
@@ -28,11 +29,8 @@ namespace MvsTexturing {
             mve::Bundle::Ptr bundle = mve::load_nvm_bundle(nvm_file, &nvm_cams);
             mve::Bundle::Cameras &cameras = bundle->get_cameras();
 
-            using namespace Utils;
-            ProgressCounter view_counter("\tLoading", cameras.size());
 #pragma omp parallel for
             for (std::size_t i = 0; i < cameras.size(); ++i) {
-                view_counter.progress<SIMPLE>();
                 mve::CameraInfo &mve_cam = cameras[i];
                 mve::AdditionalCameraInfo const &nvm_cam = nvm_cams[i];
 
@@ -55,7 +53,6 @@ namespace MvsTexturing {
 
 #pragma omp critical
                 texture_views->push_back(Base::TextureView(i, mve_cam, image_file));
-                view_counter.inc();
             }
         }
 
@@ -65,11 +62,8 @@ namespace MvsTexturing {
             mve::Bundle::Ptr bundle = mve::load_nvm_bundle(nvm_file, &nvm_cams);
             mve::Bundle::Cameras &cameras = bundle->get_cameras();
 
-            using namespace Utils;
-            ProgressCounter view_counter("\tLoading", cameras.size());
 #pragma omp parallel for
             for (std::size_t i = 0; i < cameras.size(); ++i) {
-                view_counter.progress<SIMPLE>();
                 mve::CameraInfo &mve_cam = cameras[i];
                 const mve::AdditionalCameraInfo &nvm_cam = nvm_cams[i];
 
@@ -90,7 +84,6 @@ namespace MvsTexturing {
 
 #pragma omp critical
                 texture_views->push_back(Base::TextureView(i, mve_cam, image_file));
-                view_counter.inc();
             }
         }
 
@@ -137,11 +130,8 @@ namespace MvsTexturing {
                 }
             }
 
-            using namespace Utils;
-            ProgressCounter view_counter("\tLoading", files.size() / 2);
 #pragma omp parallel for
             for (std::size_t i = 0; i < files.size(); i += 2) {
-                view_counter.progress<SIMPLE>();
                 const std::string cam_file = files[i];
                 const std::string img_file = files[i + 1];
 
@@ -201,7 +191,6 @@ namespace MvsTexturing {
 
 #pragma omp critical
                 texture_views->push_back(Base::TextureView(i / 2, cam_info, image_file));
-                view_counter.inc();
             }
         }
 
@@ -218,14 +207,10 @@ namespace MvsTexturing {
             std::size_t num_views = scene->get_views().size();
             texture_views->reserve(num_views);
 
-            using namespace Utils;
-            ProgressCounter view_counter("\tLoading", num_views);
             for (std::size_t i = 0; i < num_views; ++i) {
-                view_counter.progress<SIMPLE>();
 
                 mve::View::Ptr view = scene->get_view_by_id(i);
                 if (view == NULL) {
-                    view_counter.inc();
                     continue;
                 }
 
@@ -245,7 +230,6 @@ namespace MvsTexturing {
 
                 texture_views->push_back(Base::TextureView(view->get_id(), view->get_camera(), util::fs::abspath(
                         util::fs::join_path(view->get_directory(), image_proxy->filename))));
-                view_counter.inc();
             }
         }
 
@@ -357,11 +341,7 @@ namespace MvsTexturing {
                 mve::TriangleMesh::FaceList const &faces = mesh->get_faces();
                 std::size_t const num_faces = faces.size() / 3;
 
-                using namespace Utils;
-                ProgressCounter face_counter("\tAdding edges", num_faces);
                 for (std::size_t i = 0; i < faces.size(); i += 3) {
-                    face_counter.progress<SIMPLE>();
-
                     std::size_t v1 = faces[i];
                     std::size_t v2 = faces[i + 1];
                     std::size_t v3 = faces[i + 2];
@@ -384,7 +364,6 @@ namespace MvsTexturing {
                             }
                         }
                     }
-                    face_counter.inc();
                 }
                 std::cout << "\t" << graph->num_edges() << " total edges." << std::endl;
             }

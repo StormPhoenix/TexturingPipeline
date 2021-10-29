@@ -15,7 +15,6 @@
 
 #include "Base/LabelGraph.h"
 #include "Base/TexturePatch.h"
-#include "Utils/ProgressCounter.h"
 
 namespace MvsTexturing {
     namespace SeamSmoother {
@@ -332,11 +331,8 @@ namespace MvsTexturing {
 
             mve::TriangleMesh::FaceList const &mesh_faces = mesh->get_faces();
 
-            Utils::ProgressCounter texture_patch_counter("\tAdjusting texture patches", texture_patches->size());
 #pragma omp parallel for schedule(dynamic)
             for (std::size_t i = 0; i < texture_patches->size(); ++i) {
-                texture_patch_counter.progress<Utils::SIMPLE>();
-
                 Base::TexturePatch::Ptr texture_patch = texture_patches->at(i);
 
                 int label = texture_patch->get_label();
@@ -346,7 +342,6 @@ namespace MvsTexturing {
                 /* Only adjust texture_patches originating form input images. */
                 if (label == 0) {
                     texture_patch->adjust_colors(patch_adjust_values);
-                    texture_patch_counter.inc();
                     continue;
                 };
 
@@ -359,7 +354,6 @@ namespace MvsTexturing {
                 }
 
                 texture_patch->adjust_colors(patch_adjust_values);
-                texture_patch_counter.inc();
             }
         }
 
@@ -585,8 +579,6 @@ namespace MvsTexturing {
                 }
             }
 
-            using namespace Utils;
-            ProgressCounter texture_patch_counter("\tBlending texture patches", texture_patches->size());
 #pragma omp parallel for schedule(dynamic)
             for (std::size_t i = 0; i < texture_patches->size(); ++i) {
                 Base::TexturePatch::Ptr texture_patch = texture_patches->at(i);
@@ -602,8 +594,6 @@ namespace MvsTexturing {
                     draw_line(line.from, line.to, *line.color, texture_patch);
                 }
 
-                texture_patch_counter.progress<SIMPLE>();
-
                 /* Only alter a small strip of texture patches originating from input images. */
                 if (texture_patch->get_label() != 0) {
                     texture_patch->prepare_blending_mask(STRIP_SIZE);
@@ -611,7 +601,6 @@ namespace MvsTexturing {
 
                 texture_patch->blend(image);
                 texture_patch->release_blending_mask();
-                texture_patch_counter.inc();
             }
         }
     }
