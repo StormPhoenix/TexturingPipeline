@@ -176,10 +176,10 @@ Arguments::to_string(){
         << "Output prefix: \t" << out_prefix << std::endl
         << "Datacost file: \t" << data_cost_file << std::endl
         << "Labeling file: \t" << labeling_file << std::endl
-        << "Data term: \t" << choice_string<MvsTexturing::DataTerm>(settings.data_term) << std::endl
-        << "Smoothness term: \t" << choice_string<MvsTexturing::SmoothnessTerm>(settings.smoothness_term) << std::endl
-        << "Outlier removal method: \t" << choice_string<MvsTexturing::OutlierRemoval>(settings.outlier_removal) << std::endl
-        << "Tone mapping: \t" << choice_string<MvsTexturing::ToneMapping>(settings.tone_mapping) << std::endl
+        << "Data term: \t" << MvsTexturing::choice_string<MvsTexturing::DataTerm>(settings.data_term) << std::endl
+        << "Smoothness term: \t" << MvsTexturing::choice_string<MvsTexturing::SmoothnessTerm>(settings.smoothness_term) << std::endl
+        << "Outlier removal method: \t" << MvsTexturing::choice_string<MvsTexturing::OutlierRemoval>(settings.outlier_removal) << std::endl
+        << "Tone mapping: \t" << MvsTexturing::choice_string<MvsTexturing::ToneMapping>(settings.tone_mapping) << std::endl
         << "Apply global seam leveling: \t" << bool_to_string(settings.global_seam_leveling) << std::endl
         << "Apply local seam leveling: \t" << bool_to_string(settings.local_seam_leveling) << std::endl;
 
