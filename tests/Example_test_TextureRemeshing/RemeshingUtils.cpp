@@ -211,8 +211,24 @@ namespace TextureRemeshing {
                                             src_v1[0] * bcoords[0] + src_v2[0] * bcoords[1] + src_v3[0] * bcoords[2],
                                             src_v1[1] * bcoords[0] + src_v2[1] * bcoords[1] + src_v3[1] * bcoords[2]
                                     };
+//                                    unsigned char src_color = src_image->at(src_coord[0], src_coord[1], c);
                                     for (int c = 0; c < 3; c++) {
-                                        unsigned char src_color = src_image->at(src_coord[0], src_coord[1], c);
+                                        float normalize = 0.f;
+                                        float src_color = 0.f;
+                                        for (int kernel_offset_j = -1; kernel_offset_j <= 1; kernel_offset_j++) {
+                                            for (int kernel_offset_i = -1; kernel_offset_i <= 1; kernel_offset_i++) {
+                                                const int gx = int(src_coord[0]) + kernel_offset_i;
+                                                const int gy = int(src_coord[1]) + kernel_offset_j;
+
+                                                if (gx >= 0 && gx < src_image->width() &&
+                                                    gy >= 0 && gy < src_image->height()) {
+                                                    float weight = gauss_mat[(kernel_offset_j + 1) * 3 + (kernel_offset_i + 1)];
+                                                    normalize += weight;
+                                                    src_color += (src_image->at(gx, gy, c)) * weight;
+                                                }
+                                            }
+                                        }
+                                        src_color = (src_color / normalize);
                                         patch_image->at(x, y, c) = std::min(1.0f,
                                                                             std::max(0.0f,
                                                                                      ((float) src_color) / 255.0f));

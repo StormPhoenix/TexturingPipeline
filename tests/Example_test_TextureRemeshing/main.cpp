@@ -48,7 +48,9 @@ int main(int argc, char **argv) {
             ("ratio", bpo::value<double>()->default_value(20.0),
              "maximal distance ratio that plane segment should accept face, default 10.0")
             ("plane_size", bpo::value<int>()->default_value(10),
-             "minimal number of facets in plane segment, default 10");
+             "minimal number of facets in plane segment, default 10")
+            ("write_intermedia", bpo::value<bool>()->default_value(false),
+             "options for write intermedia files, default false");
 
     try {
         bpo::store(bpo::parse_command_line(argc, argv, opts), vm);
@@ -56,8 +58,10 @@ int main(int argc, char **argv) {
         std::cout << "undefine options in command lines.\n";
         return 0;
     }
+
     const std::string in_mesh_path = vm["input_mesh"].as<std::string>();
     const std::string out_mesh_path = vm["output_mesh"].as<std::string>();
+    const bool write_intermedia = vm["write_intermedia"].as<bool>();
 
     AttributeMatrix mesh_vertices, mesh_normals, mesh_texcoords;
     IndexMatrix mesh_faces, mesh_normal_ids, mesh_texcoord_ids;
@@ -115,9 +119,11 @@ int main(int argc, char **argv) {
     //merge parallel adjacent plane segments
     PlaneEstimation::plane_region_merge(mesh);
 
-    // TODO delete
+    if (write_intermedia) {
 //    IO::repair_non_manifold(mesh);
-//    IO::save_mesh_plane_segments(out_mesh_path, mesh);
+        IO::save_mesh_plane_segments(out_mesh_path, mesh);
+    }
+
 
     std::cout << "\n### TextureRemeshing------Load Texture images" << std::endl;
     std::map<std::string, mve::ByteImage::Ptr> material_image_map;
