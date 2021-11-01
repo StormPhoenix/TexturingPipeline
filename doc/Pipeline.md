@@ -1,5 +1,10 @@
 #### Planning
 - TextureAtlas
+    - 思考如何填充黑色区域
+    - 采样分辨率重新设计
+    - TextureAltas 是否有分辨率大小限制
+    - MeshPolyRefinement 平面大小限制
+    
 - Learn math tools
 - Add bundle adjustment algorithm
     - BA 算法和基于 color 的优化还是有很大的区别

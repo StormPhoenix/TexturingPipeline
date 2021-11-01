@@ -2,7 +2,6 @@
 // Created by Storm Phoenix on 2021/10/22.
 //
 #include <iostream>
-#include <fstream>
 
 #include <boost/program_options.hpp>
 
@@ -27,7 +26,7 @@
 
 #include "RemeshingUtils.h"
 
-#define PLANE_DENSITY 300
+#define PLANE_DENSITY 650
 
 typedef Eigen::Matrix<double, -1, -1, Eigen::RowMajor> AttributeMatrix;
 typedef Eigen::Matrix<int, -1, -1, Eigen::RowMajor> IndexMatrix;
@@ -153,13 +152,18 @@ int main(int argc, char **argv) {
 
     std::cout << "\n### TextureRemeshing------Refine None Group Faces" << std::endl;
     {
+        std::cout << "\tSearch non-planar faces ... ";
         std::size_t rows = mesh.m_face_plane_index.rows();
+
+        std::size_t none_planar_faces = 0;
         for (int i = 0; i < rows; i++) {
             if (mesh.m_face_plane_index(i, 0) == -1) {
                 mesh.m_plane_groups.push_back(Base::PlaneGroup());
                 createOneFaceGroup(i, mesh.m_plane_groups.back(), mesh);
+                none_planar_faces ++;
             }
         }
+        std::cout << none_planar_faces << " faces found. \n";
     }
 
     if (write_intermedia) {
