@@ -22,4 +22,8 @@
 - Debug
     - work directory: /Users/stormphoenix/Workspace/Projects/CLionProjects/3dReconstruction/Dataset/aym
     - options: --input_mesh ./Input/debug.ply --output_mesh ./Output_ply_remesh/debug_ply_remesh.obj
+    
+- elephant
+    - work directory: /Users/stormphoenix/Workspace/Projects/CLionProjects/3dReconstruction/Dataset/elephant
+    - options: --input_mesh ./Output_i23d/model_0.obj --output_mesh ./Output_i23d/remeshing/remeshing.obj
         

@@ -11,6 +11,7 @@
 #include <TextureMapper/SceneBuilder.h>
 #include <mve/mesh.h>
 #include <mve/mesh_info.h>
+#include <mve/image.h>
 
 namespace TextureRemeshing {
     namespace Utils {
@@ -94,11 +95,11 @@ namespace TextureRemeshing {
                 // Compute 3D uv
                 Base::Scalar max_dx, min_dx = 0;
                 Base::Scalar max_dy, min_dy = 0;
+                bool d_init = false;
                 const std::size_t n_faces = group.m_indices.size();
                 std::vector<math::Vec2f> texcoords;
                 texcoords.resize(n_faces * 3);
 
-//#pragma omp parallel for schedule(dynamic)
                 for (std::size_t f_i = 0; f_i < n_faces; f_i++) {
                     std::size_t face_idx = group.m_indices[f_i];
                     Base::AttributeMatrix points_3 = mesh.m_vertices(mesh.m_faces.row(face_idx), Eigen::all);
@@ -117,11 +118,20 @@ namespace TextureRemeshing {
                     Base::Scalar dy1 = d1.dot(group.m_y_axis);
                     Base::Scalar dy2 = d2.dot(group.m_y_axis);
 
-                    max_dx = std::max(max_dx, std::max(dx0, std::max(dx1, dx2)));
-                    min_dx = std::min(min_dx, std::min(dx0, std::min(dx1, dx2)));
+                    if (!d_init) {
+                        d_init = true;
+                        max_dx = std::max(dx0, std::max(dx1, dx2));
+                        min_dx = std::min(dx0, std::min(dx1, dx2));
 
-                    max_dy = std::max(max_dy, std::max(dy0, std::max(dy1, dy2)));
-                    min_dy = std::min(min_dy, std::min(dy0, std::min(dy1, dy2)));
+                        max_dy = std::max(dy0, std::max(dy1, dy2));
+                        min_dy = std::min(dy0, std::min(dy1, dy2));
+                    } else {
+                        max_dx = std::max(max_dx, std::max(dx0, std::max(dx1, dx2)));
+                        min_dx = std::min(min_dx, std::min(dx0, std::min(dx1, dx2)));
+
+                        max_dy = std::max(max_dy, std::max(dy0, std::max(dy1, dy2)));
+                        min_dy = std::min(min_dy, std::min(dy0, std::min(dy1, dy2)));
+                    }
 
                     texcoords[f_i * 3 + 0] = {dx0, dy0};
                     texcoords[f_i * 3 + 1] = {dx1, dy1};
@@ -148,14 +158,6 @@ namespace TextureRemeshing {
                 double padding = double(padding_pixels) / plane_density;
 #pragma omp parallel for schedule(dynamic)
                 for (std::size_t i = 0; i < texcoords.size(); i++) {
-                    if ((texcoords[i][0] - min_dx + padding) < 0 || (texcoords[i][1] - min_dy + padding) < 0) {
-                        std::cout << "Debug coord: \n\t" << texcoords[i][0] << ", " << texcoords[i][1] << std::endl;
-                        std::cout << "\t" << min_dx << ", " << min_dy << std::endl;
-                        std::cout << "\t" << texcoords[i][0] - min_dx << ", " << texcoords[i][1] - min_dy << std::endl;
-                        std::cout << "\t" << texcoords[i][0] - min_dx + padding << ", "
-                                  << texcoords[i][1] - min_dy + padding << std::endl;
-                    }
-
                     texcoords[i][0] = (texcoords[i][0] - min_dx + padding) * plane_density;
                     texcoords[i][1] = (texcoords[i][1] - min_dy + padding) * plane_density;
                 }
@@ -172,6 +174,7 @@ namespace TextureRemeshing {
                             material_image_map.find(face_materials[f_idx]) == material_image_map.end()) {
                             continue;
                         }
+
                         mve::ByteImage::ConstPtr src_image = material_image_map.find(face_materials[f_idx])->second;
                         const int src_width = src_image->width();
                         const int src_height = src_image->height();

@@ -1,4 +1,5 @@
 #### Planning
+- TextureAtlas
 - Learn math tools
 - Add bundle adjustment algorithm
     - BA 算法和基于 color 的优化还是有很大的区别
