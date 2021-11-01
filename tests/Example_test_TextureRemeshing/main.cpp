@@ -31,6 +31,38 @@
 
 typedef Eigen::Matrix<double, -1, -1, Eigen::RowMajor> AttributeMatrix;
 typedef Eigen::Matrix<int, -1, -1, Eigen::RowMajor> IndexMatrix;
+using Vec3 = Eigen::Matrix<double, 1, 3>;
+
+void createOneFaceGroup(std::size_t face_id,
+                        MeshPolyRefinement::Base::PlaneGroup &group,
+                        const MeshPolyRefinement::Base::TriMesh &mesh) {
+    group.m_indices.push_back(face_id);
+    group.m_plane_normal = mesh.m_face_normals.row(face_id);
+    group.m_plane_center =
+            (mesh.m_vertices.row(mesh.m_faces(face_id, 0)) +
+             mesh.m_vertices.row(mesh.m_faces(face_id, 1)) +
+             mesh.m_vertices.row(mesh.m_faces(face_id, 2))) / 3.0;
+    group.m_avg_distance = 0.f;
+
+    // compute m_x_axis, m_y_axis
+    double d = -group.m_plane_normal.dot(group.m_plane_center);
+    Vec3 p = -d * group.m_plane_normal;
+    if ((p - group.m_plane_center).norm() < 1e-5) {
+        p.setZero();
+        if (group.m_plane_normal[0] != 0) {
+            p[0] = -d / group.m_plane_normal[0];
+        } else if (group.m_plane_normal[1] != 0) {
+            p[1] = -d / group.m_plane_normal[1];
+        } else {
+            p[2] = -d / group.m_plane_normal[2];
+        }
+    }
+    group.m_x_axis = (p - group.m_plane_center).normalized();
+    group.m_y_axis = (group.m_plane_normal.cross(group.m_x_axis)).normalized();
+
+    // params
+    // None
+}
 
 int main(int argc, char **argv) {
     namespace bpo = boost::program_options;
@@ -119,11 +151,21 @@ int main(int argc, char **argv) {
     //merge parallel adjacent plane segments
     PlaneEstimation::plane_region_merge(mesh);
 
+    std::cout << "\n### TextureRemeshing------Refine None Group Faces" << std::endl;
+    {
+        std::size_t rows = mesh.m_face_plane_index.rows();
+        for (int i = 0; i < rows; i++) {
+            if (mesh.m_face_plane_index(i, 0) == -1) {
+                mesh.m_plane_groups.push_back(Base::PlaneGroup());
+                createOneFaceGroup(i, mesh.m_plane_groups.back(), mesh);
+            }
+        }
+    }
+
     if (write_intermedia) {
 //    IO::repair_non_manifold(mesh);
         IO::save_mesh_plane_segments(out_mesh_path, mesh);
     }
-
 
     std::cout << "\n### TextureRemeshing------Load Texture images" << std::endl;
     std::map<std::string, mve::ByteImage::Ptr> material_image_map;

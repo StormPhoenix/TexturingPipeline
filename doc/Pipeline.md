@@ -68,4 +68,4 @@ mainly reference from openMVS and colmap
 - Keep reading paper per-day
 
 #### Bugs
-- const 常量饮用 std::vector，当 vector 扩展时，常量值可能会改变。
+- const 常量引用 std::vector，当 vector 扩展时，常量值可能会改变。
