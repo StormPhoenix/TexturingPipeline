@@ -1,9 +1,42 @@
 #### Planning
+- MRF Algorithms
+    - 导入 MRF 库（mapmap_cpu \ LBP \ GCoptimization）
+        - mapmap_cpu 和 LBP 实际上是同一套算法，目前考虑试用 LBP 代码（先弄清楚用法）
+    
 - TextureAtlas
     - 思考如何填充黑色区域
-    - 采样分辨率重新设计
-    - TextureAltas 是否有分辨率大小限制
+        - 黑色区域像素保存该点起始位置处最大矩形大小
+        - 单个 face 区域是否应该剔除
+        
+    - 采样分辨率重新设计、TextureAltas 是否有分辨率大小限制
+    
+    - 参考 Seamless Texture Atlas（patch 生成问题暂时搁置，先解决 patch 排布问题）
+        - texture patch 的排布都是 rectangle 不存在空隙的问题。
+        - 生成 quadratic patch 的方式值得参考。
+    
     - MeshPolyRefinement 平面大小限制
+    
+    
+- [MakeDense](../tests/Example_test_MakeMeshDense/README.md)
+    - 加密网格与未加密网格之间的联系用 color 标记 -> 用未加密网格做 planar detection -> 每个 planar 内部用加密后的网格 uv 信息将纹理复制到新纹理图上
+        -> 计算未加密网格在新纹理图上的 uv
+        
+- [图像融合](../tests/Exampel_test_PlaneTexMerge/README.md) - 多个相机投影在 plane 上进行融合
+    <font color="red">(由于不能利用几何信息，遮挡性质难以判断，会加大巨量 labels 数目)</font>
+    - 考虑 1：Graph-cuts 融合
+        - 大致看一下 graph-cuts 文章看看是如何做图像融合的
+        - 测试 GCoptimization 代码
+            - graph-cut-optimization
+        
+    - 考虑 2：相机两两对比，确定光照不一致区域，对不一致区域做大多数投票，选择"大多数"相机融合
+        - "大多数" 相机的选取不一定能够确定。在不能判断遮挡的情况下，无法判断某张图片是 ground-truth
+        
+    - 考虑 3：还是要利用加密后的网格信息。利用划分后的三角形剔除被遮挡相机、outlier 点。
+        - 利用 projection 方法在 plane 上做投影，边界处既可以按照原本的方法试用 poisson editing，或者新考虑到的 min-cut
+        - 利用 MRF 方法。和原本算法区别：之前是在整个 Model 上做 MRF，这次是在单个 Planer 上做 MRF 优化。<font color="red">一个额外的操作是：这次可以修改 MRF 函数，使纹理边界尽量分布在弱纹理区域。</font>
+            - 对整 Mesh 和单个 Plane 分别做 MRF-Optimization 在视觉上区别不大（纹理边界基本没变过）
+    
+    - 考虑 4：对网格表面生成图像步骤本身很费时。如果考虑在生成图像前提前检查是否要生成图像？比如在 plane 上随机采样点对相机求交线，如果大多数交线被阻挡，则认为该相机不可取。
     
 - Learn math tools
 - Add bundle adjustment algorithm
@@ -62,6 +95,7 @@ mainly reference from openMVS and colmap
 #### Photon-Consistency Check
 - [colmap](https://github.com/colmap/colmap/blob/9f3a75ae9c72188244f2403eb085e51ecf4397a8/src/mvs/patch_match.h)
 - [openMVS](https://github.com/cdcseacave/openMVS/search?q=photo+consistency)
+    - 代码和 mvs-texturing 是一样的，仅仅只是优化算法 LBP 不一样。
 
 #### View Selection
 - MRF

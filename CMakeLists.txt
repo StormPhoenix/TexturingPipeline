@@ -66,6 +66,8 @@ set(MVE_INCLUDE_DIR ${MVE_Src}/libs)
 set(RAYINT_Src ${PROJECT_SOURCE_DIR}/external/rayint)
 set(RAYINT_INCLUDE_DIR ${RAYINT_Src}/libs)
 
+set(LBP_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/external/LBP)
+
 set(SOURCE_DIR "${PROJECT_SOURCE_DIR}/src")
 
 add_subdirectory(${MVE_Src})
@@ -74,3 +76,4 @@ add_subdirectory(${PROJECT_SOURCE_DIR}/tests/Example_test_MeshPolyRefinement)
 add_subdirectory(${PROJECT_SOURCE_DIR}/tests/Example_test_MvsTexturing)
 add_subdirectory(${PROJECT_SOURCE_DIR}/tests/Example_test_TextureRemeshing)
 add_subdirectory(${PROJECT_SOURCE_DIR}/tests/Example_test_MakeMeshDense)
+add_subdirectory(${PROJECT_SOURCE_DIR}/tests/Exampel_test_PlaneTexMerge)

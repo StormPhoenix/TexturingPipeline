@@ -46,14 +46,6 @@ namespace MvsTexturing {
             return ret;
         }
 
-/**
- * A multi-variate normal distribution which is NOT normalized such that the integral is 1.
- *
- * @param X is the vector for which the function is to be evaluated. Must have size 1xN.
- * @param mu is the mean around which the distribution is centered. Must have size 1xN.
- * @param covariance_inv is the INVERSE of the covariance matrix. Must have size NxN.
- * @return \f$\exp(-\frac{1}{2} (X-\mbox{mu})^T \cdot \mbox{covariance\_inv} \cdot (X-\mbox{mu}))\f$
- */
         template <typename T, int N> T const
         multi_gauss_unnormalized(Eigen::Matrix<T, 1, N> const & X, Eigen::Matrix<T, 1, N> const & mu,
                                  Eigen::Matrix<T, N, N> const & covariance_inv) {
