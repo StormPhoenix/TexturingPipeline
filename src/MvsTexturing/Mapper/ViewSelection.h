@@ -25,7 +25,7 @@ namespace MvsTexturing {
                                       const Parameter &param,
                                       DataCosts *data_costs);
 
-            void select_views(const DataCosts &data_costs, Base::LabelGraph &graph, const Parameter &param);
+            void solve_mrf_problem(const DataCosts &data_costs, Base::LabelGraph &graph, const Parameter &param);
         }
     }
 }

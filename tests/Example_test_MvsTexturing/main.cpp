@@ -273,5 +273,5 @@ void run_mrf_method(const MvsTexturing::MeshPtr mesh,
         }
         std::cout << "done." << std::endl;
     }
-    VS::Mrf::select_views(data_costs, graph, param);
+    VS::Mrf::solve_mrf_problem(data_costs, graph, param);
 }
