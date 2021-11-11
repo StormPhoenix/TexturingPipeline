@@ -14,11 +14,11 @@
 #include <Eigen/SparseLU>
 #include <util/timer.h>
 
+#include "Parameter.h"
 #include "Base/View.h"
 #include "Base/LabelGraph.h"
 #include "Base/TexturePatch.h"
 #include "Base/TextureAtlas.h"
-#include "Utils/Settings.h"
 
 #include "MvsTexturing.h"
 
@@ -56,8 +56,8 @@ namespace MvsTexturing {
 
         bool fill_hole(std::vector<std::size_t> const &hole, const Base::LabelGraph &graph,
                        MeshConstPtr mesh, const MeshInfo &mesh_info,
-                       std::vector<std::vector<Base::VertexProjectionInfo> > *vertex_projection_infos,
-                       std::vector<Base::TexturePatch::Ptr> *texture_patches) {
+                       VertexProjectionInfoList *vertex_projection_infos,
+                       TexturePatchList *texture_patches) {
 
             mve::TriangleMesh::FaceList const &mesh_faces = mesh->get_faces();
             mve::TriangleMesh::VertexList const &vertices = mesh->get_vertices();
@@ -371,7 +371,7 @@ namespace MvsTexturing {
         }
 
         void
-        merge_vertex_projection_infos(std::vector<std::vector<Base::VertexProjectionInfo>> *vertex_projection_infos) {
+        merge_vertex_projection_infos(VertexProjectionInfoList *vertex_projection_infos) {
             /* Merge vertex infos within the same texture patch. */
             // vertex_projection_infos 里每个 vertex 连接的 faces 每个可能都有不同的 texture patch id
             //  现在按照 texture patch id 将不同 faces 聚合起来
@@ -405,9 +405,9 @@ namespace MvsTexturing {
         *  relative texture coordinates and extacting the texture views relevant part
         */
         TexturePatchCandidate
-        generate_candidate(int label, Base::TextureView const &texture_view,
-                           std::vector<std::size_t> const &faces, MeshConstPtr mesh,
-                           Settings const &settings) {
+        generate_candidate(int label, const Base::TextureView &texture_view,
+                           const std::vector<std::size_t> &faces, MeshConstPtr mesh,
+                           const Parameter &param) {
 
             mve::ByteImage::Ptr view_image = texture_view.get_image();
             int min_x = view_image->width(), min_y = view_image->height();
@@ -456,7 +456,7 @@ namespace MvsTexturing {
             byte_image = mve::image::crop(view_image, width, height, min_x, min_y, *math::Vec3uc(255, 0, 255));
             mve::FloatImage::Ptr image = mve::image::byte_to_float_image(byte_image);
 
-            if (settings.tone_mapping == TONE_MAPPING_GAMMA) {
+            if (param.tone_mapping == Tone_Mapping_Gamma) {
                 // 涉及到颜色矫正？
                 mve::image::gamma_correct(image, 2.2f);
             }
@@ -468,10 +468,10 @@ namespace MvsTexturing {
         }
 
         void generate_texture_patches(const Base::LabelGraph &graph, MeshConstPtr mesh,
-                                      const MeshInfo &mesh_info, std::vector<Base::TextureView> *texture_views,
-                                      const Settings &settings,
-                                      std::vector<std::vector<Base::VertexProjectionInfo>> *vertex_projection_infos,
-                                      std::vector<Base::TexturePatch::Ptr> *texture_patches) {
+                                      const MeshInfo &mesh_info, TextureViewList *texture_views,
+                                      const Parameter &param,
+                                      VertexProjectionInfoList *vertex_projection_infos,
+                                      TexturePatchList *texture_patches) {
 
             util::WallTimer timer;
 
@@ -500,7 +500,7 @@ namespace MvsTexturing {
                     //  faces,
                     //  texcoords(相对于 rect 左下角的 offset),
                     //  在image 上的 rect 范围）
-                    candidates.push_back(generate_candidate(label, *texture_view, subgraphs[j], mesh, settings));
+                    candidates.push_back(generate_candidate(label, *texture_view, subgraphs[j], mesh, param));
                 }
                 texture_view->release_image();
 
@@ -582,7 +582,7 @@ namespace MvsTexturing {
                     std::vector<std::size_t> const &subgraph = subgraphs[i];
 
                     bool success = false;
-                    if (settings.hole_filling) {
+                    if (!param.skip_hole_filling) {
                         success = fill_hole(subgraph, graph, mesh, mesh_info,
                                             vertex_projection_infos, texture_patches);
                     }
@@ -590,7 +590,7 @@ namespace MvsTexturing {
                     if (success) {
                         num_patches += 1;
                     } else {
-                        if (settings.keep_unseen_faces) {
+                        if (param.keep_unseen_faces) {
 #pragma omp critical
                             unseen_faces.insert(unseen_faces.end(),
                                                 subgraph.begin(), subgraph.end());
@@ -696,20 +696,15 @@ namespace MvsTexturing {
             return first->get_size() > second->get_size();
         }
 
-        void generate_texture_atlases(std::vector<Base::TexturePatch::Ptr> *orig_texture_patches,
-                                 std::vector<Base::TextureAtlas::Ptr> *texture_atlases,
-                                 bool tone_mapping = false) {
+        void generate_texture_atlases(TexturePatchList *orig_texture_patches,
+                                      TextureAtlasList *texture_atlases,
+                                      bool tone_mapping_gamma) {
             std::list<Base::TexturePatch::ConstPtr> texture_patches;
             while (!orig_texture_patches->empty()) {
                 Base::TexturePatch::Ptr texture_patch = orig_texture_patches->back();
                 orig_texture_patches->pop_back();
 
-                /* TODO consider more tone_mapping types ??？
-                if (settings.tone_mapping != TONE_MAPPING_NONE) {
-                    mve::image::gamma_correct(texture_patch->get_image(), 1.0f / 2.2f);
-                }
-                 */
-                if (tone_mapping) {
+                if (tone_mapping_gamma) {
                     mve::image::gamma_correct(texture_patch->get_image(), 1.0f / 2.2f);
                 }
 

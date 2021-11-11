@@ -16,18 +16,18 @@
 #include "Base/LabelGraph.h"
 #include "Base/TexturePatch.h"
 
+#include "MvsTexturing.h"
+
 namespace MvsTexturing {
     namespace SeamSmoother {
         typedef Eigen::SparseMatrix<float> SpMat;
-        typedef std::vector<std::vector<Base::VertexProjectionInfo>> VertexProjectionInfos;
 
         struct MeshEdge {
             std::size_t v1;
             std::size_t v2;
         };
 
-        math::Vec3f
-        sample_edge(Base::TexturePatch::ConstPtr texture_patch, math::Vec2f p1, math::Vec2f p2) {
+        math::Vec3f sample_edge(Base::TexturePatch::ConstPtr texture_patch, math::Vec2f p1, math::Vec2f p2) {
             math::Vec2f p12 = p2 - p1;
             std::size_t num_samples = std::max(p12.norm(), 1.0f) * 2.0f;
             math::Accum<math::Vec3f> color_accum(math::Vec3f(0.0f));
@@ -42,9 +42,9 @@ namespace MvsTexturing {
             return color_accum.normalized();
         }
 
-        void
-        find_mesh_edge_projections(std::vector<std::vector<Base::VertexProjectionInfo>> const &vertex_projection_infos,
-                                   MeshEdge mesh_edge, std::vector<Base::EdgeProjectionInfo> *edge_projection_infos) {
+        void find_mesh_edge_projections(const VertexProjectionInfoList &vertex_projection_infos,
+                                        MeshEdge mesh_edge,
+                                        EdgeProjectionInfoList *edge_projection_infos) {
             std::vector<Base::VertexProjectionInfo> const &v1_projection_infos = vertex_projection_infos[mesh_edge.v1];
             std::vector<Base::VertexProjectionInfo> const &v2_projection_infos = vertex_projection_infos[mesh_edge.v2];
 
@@ -74,10 +74,9 @@ namespace MvsTexturing {
                                           edge_projection_infos_set.end());
         }
 
-        math::Vec3f calculate_difference(VertexProjectionInfos const &vertex_projection_infos,
-                                         mve::TriangleMesh::ConstPtr &mesh,
-                                         std::vector<Base::TexturePatch::Ptr> const &texture_patches,
-                                         std::vector<MeshEdge> const &seam_edges, int label1, int label2) {
+        math::Vec3f calculate_difference(const VertexProjectionInfoList &vertex_projection_infos,
+                                         MeshConstPtr &mesh, const TexturePatchList &texture_patches,
+                                         const std::vector<MeshEdge> &seam_edges, int label1, int label2) {
 
             assert(label1 != 0 && label2 != 0 && label1 < label2);
             assert(!seam_edges.empty());
@@ -133,8 +132,8 @@ namespace MvsTexturing {
         }
 
         void
-        find_seam_edges_for_vertex_label_combination(const Base::LabelGraph &graph, mve::TriangleMesh::ConstPtr &mesh,
-                                                     mve::MeshInfo const &mesh_info, std::size_t vertex,
+        find_seam_edges_for_vertex_label_combination(const Base::LabelGraph &graph, MeshConstPtr &mesh,
+                                                     MeshInfo const &mesh_info, std::size_t vertex,
                                                      std::size_t label1, std::size_t label2,
                                                      std::vector<MeshEdge> *seam_edges) {
 
@@ -173,10 +172,11 @@ namespace MvsTexturing {
             }
         }
 
-        void global_seam_leveling(const Base::LabelGraph &graph, mve::TriangleMesh::ConstPtr mesh,
-                                  const mve::MeshInfo &mesh_info,
-                                  const std::vector<std::vector<Base::VertexProjectionInfo>> &vertex_projection_infos,
-                                  std::vector<Base::TexturePatch::Ptr> *texture_patches) {
+        void global_seam_leveling(const Base::LabelGraph &graph,
+                                  mve::TriangleMesh::ConstPtr mesh,
+                                  const MeshInfo &mesh_info,
+                                  const VertexProjectionInfoList &vertex_projection_infos,
+                                  TexturePatchList *texture_patches) {
 
             mve::TriangleMesh::VertexList const &vertices = mesh->get_vertices();
             std::size_t const num_vertices = vertices.size();
@@ -357,9 +357,8 @@ namespace MvsTexturing {
             }
         }
 
-        math::Vec3f
-        mean_color_of_edge_point(std::vector<Base::EdgeProjectionInfo> const & edge_projection_infos,
-                                 std::vector<Base::TexturePatch::Ptr> const & texture_patches, float t) {
+        math::Vec3f mean_color_of_edge_point(const EdgeProjectionInfoList &edge_projection_infos,
+                                 const TexturePatchList &texture_patches, float t) {
 
             assert(0.0f <= t && t <= 1.0f);
             math::Accum<math::Vec3f> color_accum(math::Vec3f(0.0f));
@@ -378,7 +377,7 @@ namespace MvsTexturing {
 
         void
         draw_line(math::Vec2f p1, math::Vec2f p2,
-                  std::vector<math::Vec3f> const & edge_color, Base::TexturePatch::Ptr texture_patch) {
+                  std::vector<math::Vec3f> const &edge_color, Base::TexturePatch::Ptr texture_patch) {
             /* http://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm */
 
             int x0 = std::floor(p1[0] + 0.5f);
@@ -433,26 +432,25 @@ namespace MvsTexturing {
 
         struct Pixel {
             math::Vec2i pos;
-            math::Vec3f const * color;
+            math::Vec3f const *color;
         };
 
         struct Line {
             math::Vec2i from;
             math::Vec2i to;
-            std::vector<math::Vec3f> const * color;
+            std::vector<math::Vec3f> const *color;
         };
 
-        void
-        find_seam_edges(const Base::LabelGraph &graph, mve::TriangleMesh::ConstPtr mesh,
-                        std::vector<MeshEdge> * seam_edges) {
-            mve::TriangleMesh::FaceList const & faces = mesh->get_faces();
+        void find_seam_edges(const Base::LabelGraph &graph, mve::TriangleMesh::ConstPtr mesh,
+                        std::vector<MeshEdge> *seam_edges) {
+            mve::TriangleMesh::FaceList const &faces = mesh->get_faces();
 
             seam_edges->clear();
 
             // Is it possible that a single edge is part of more than three faces whichs' label is non zero???
 
             for (std::size_t node = 0; node < graph.num_nodes(); ++node) {
-                std::vector<std::size_t> const & adj_nodes = graph.get_adj_nodes(node);
+                std::vector<std::size_t> const &adj_nodes = graph.get_adj_nodes(node);
                 for (std::size_t adj_node : adj_nodes) {
                     /* Add each edge only once. */
                     if (node > adj_node) continue;
@@ -464,10 +462,10 @@ namespace MvsTexturing {
 
                     /* Find shared edge of the faces. */
                     std::vector<std::size_t> shared_edge;
-                    for (int i = 0; i < 3; ++i){
+                    for (int i = 0; i < 3; ++i) {
                         std::size_t v1 = faces[3 * node + i];
 
-                        for (int j = 0; j < 3; j++){
+                        for (int j = 0; j < 3; j++) {
                             std::size_t v2 = faces[3 * adj_node + j];
 
                             if (v1 == v2) shared_edge.push_back(v1);
@@ -489,10 +487,9 @@ namespace MvsTexturing {
 
 #define STRIP_SIZE 20
 
-        void
-        local_seam_leveling(const Base::LabelGraph &graph, mve::TriangleMesh::ConstPtr mesh,
-                            VertexProjectionInfos const & vertex_projection_infos,
-                            std::vector<Base::TexturePatch::Ptr> * texture_patches) {
+        void local_seam_leveling(const Base::LabelGraph &graph, mve::TriangleMesh::ConstPtr mesh,
+                                 const VertexProjectionInfoList &vertex_projection_infos,
+                                 TexturePatchList *texture_patches) {
 
             std::size_t const num_vertices = vertex_projection_infos.size();
             std::vector<math::Vec3f> vertex_colors(num_vertices);
@@ -511,7 +508,7 @@ namespace MvsTexturing {
                 edge_colors.resize(seam_edges.size());
                 edge_projection_infos.resize(seam_edges.size());
                 for (std::size_t i = 0; i < seam_edges.size(); ++i) {
-                    MeshEdge const & seam_edge = seam_edges[i];
+                    MeshEdge const &seam_edge = seam_edges[i];
                     find_mesh_edge_projections(vertex_projection_infos, seam_edge,
                                                &edge_projection_infos[i]);
                 }
@@ -531,12 +528,12 @@ namespace MvsTexturing {
                 // TODO 临时修改
 //        float max_length = 1;
                 float max_length = 4;
-                for (Base::EdgeProjectionInfo const & edge_projection_info : edge_projection_infos[i]) {
+                for (Base::EdgeProjectionInfo const &edge_projection_info : edge_projection_infos[i]) {
                     float length = (edge_projection_info.p1 - edge_projection_info.p2).norm();
                     max_length = std::max(max_length, length);
                 }
 
-                std::vector<math::Vec3f> & edge_color = edge_colors[i];
+                std::vector<math::Vec3f> &edge_color = edge_colors[i];
                 edge_color.resize(std::ceil(max_length * 2.0f));
                 // 在 seam edge 按照等距间隔采样点，每个点的色值在不同的 patch 上做平均
                 for (std::size_t j = 0; j < edge_color.size(); ++j) {
@@ -544,7 +541,7 @@ namespace MvsTexturing {
                     edge_color[j] = mean_color_of_edge_point(edge_projection_infos[i], *texture_patches, t);
                 }
 
-                for (Base::EdgeProjectionInfo const & edge_projection_info : edge_projection_infos[i]) {
+                for (Base::EdgeProjectionInfo const &edge_projection_info : edge_projection_infos[i]) {
                     Line line;
                     line.from = edge_projection_info.p1 + math::Vec2f(0.5f, 0.5f);
                     line.to = edge_projection_info.p2 + math::Vec2f(0.5f, 0.5f);
@@ -557,11 +554,11 @@ namespace MvsTexturing {
             // 上文计算了 seam edge 之间采样点的 mean color
             // 这里把 seam edge 两端点 vertex 的 mean color 给弄出来
             for (std::size_t i = 0; i < vertex_colors.size(); ++i) {
-                std::vector<Base::VertexProjectionInfo> const & projection_infos = vertex_projection_infos[i];
+                std::vector<Base::VertexProjectionInfo> const &projection_infos = vertex_projection_infos[i];
                 if (projection_infos.size() <= 1) continue;
 
                 math::Accum<math::Vec3f> color_accum(math::Vec3f(0.0f));
-                for (Base::VertexProjectionInfo const & projection_info : projection_infos) {
+                for (Base::VertexProjectionInfo const &projection_info : projection_infos) {
                     Base::TexturePatch::Ptr texture_patch = texture_patches->at(projection_info.texture_patch_id);
                     if (texture_patch->get_label() == 0) continue;
                     math::Vec3f color = texture_patch->get_pixel_value(projection_info.projection);
@@ -571,7 +568,7 @@ namespace MvsTexturing {
 
                 vertex_colors[i] = color_accum.normalized();
 
-                for (Base::VertexProjectionInfo const & projection_info : projection_infos) {
+                for (Base::VertexProjectionInfo const &projection_info : projection_infos) {
                     Pixel pixel;
                     pixel.pos = math::Vec2i(projection_info.projection + math::Vec2f(0.5f, 0.5f));
                     pixel.color = &vertex_colors[i];
@@ -586,11 +583,11 @@ namespace MvsTexturing {
                 mve::FloatImage::Ptr image = texture_patch->get_image()->duplicate();
 
                 /* Apply colors. */
-                for (Pixel const & pixel : pixels[i]) {
+                for (Pixel const &pixel : pixels[i]) {
                     texture_patch->set_pixel_value(pixel.pos, *pixel.color);
                 }
 
-                for (Line const & line : lines[i]) {
+                for (Line const &line : lines[i]) {
                     draw_line(line.from, line.to, *line.color, texture_patch);
                 }
 

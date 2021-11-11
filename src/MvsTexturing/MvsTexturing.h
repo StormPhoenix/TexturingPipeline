@@ -14,15 +14,23 @@
 #include <IO/IO.h>
 #include <Base/View.h>
 #include <Base/LabelGraph.h>
+#include <Base/SparseTable.h>
 #include <Base/TextureAtlas.h>
 #include <Utils/Timer.h>
-#include <TextureMapper/SceneBuilder.h>
-#include <TextureMapper/ViewSelection.h>
+#include <Mapper/SceneBuilder.h>
+#include <Mapper/ViewSelection.h>
 
 namespace MvsTexturing {
     typedef mve::TriangleMesh::Ptr MeshPtr;
     typedef mve::TriangleMesh::ConstPtr MeshConstPtr;
     typedef mve::MeshInfo MeshInfo;
+    typedef std::vector<Base::TextureView> TextureViewList;
+    typedef std::vector<Base::TexturePatch::Ptr> TexturePatchList;
+    typedef std::vector<Base::TextureAtlas::Ptr> TextureAtlasList;
+    typedef std::vector<std::vector<Base::FaceProjectionInfo>> FaceProjectionInfoList;
+    typedef std::vector<std::vector<Base::VertexProjectionInfo>> VertexProjectionInfoList;
+    typedef std::vector<Base::EdgeProjectionInfo> EdgeProjectionInfoList;
+    typedef Base::SparseTable<std::uint32_t, std::uint16_t, double> DataCosts;
 
     namespace Base {
         typedef double Scalar;

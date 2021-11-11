@@ -16,7 +16,7 @@ if (OpenMP_CXX_FOUND)
 endif (OpenMP_CXX_FOUND)
 
 find_package(Boost 1.65 COMPONENTS program_options thread REQUIRED)
-foreach (PackageName GMP MPFR Ceres PNG JPEG TIFF TBB)
+foreach (PackageName GMP MPFR Ceres PNG JPEG TIFF)
     find_package(${PackageName} REQUIRED)
     if (${PackageName}_FOUND)
         message(STATUS "NOTICE: ${PackageName} library is found.")
@@ -65,6 +65,9 @@ set(MVE_INCLUDE_DIR ${MVE_Src}/libs)
 
 set(RAYINT_Src ${PROJECT_SOURCE_DIR}/external/rayint)
 set(RAYINT_INCLUDE_DIR ${RAYINT_Src}/libs)
+
+set(Mapmap_Src ${PROJECT_SOURCE_DIR}/external/mapmap_cpu)
+set(Mapmap_INCLUDE_DIR ${Mapmap_Src})
 
 set(LBP_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/external/LBP)
 

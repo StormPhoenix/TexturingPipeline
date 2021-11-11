@@ -541,7 +541,7 @@ namespace MvsTexturing {
                 std::string prefix = "";
                 {
                     std::size_t dotpos = filename.find_last_of('.');
-                    if (dotpos == std::string::npos) {
+                    if (dotpos == std::string::npos || dotpos == 0) {
                         prefix = filename;
                     } else {
                         prefix = filename.substr(0, dotpos);

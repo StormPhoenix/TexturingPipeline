@@ -8,7 +8,7 @@
 
 #include <mve/image.h>
 
-#include "Math/Tri2D.h"
+#include <Math/Tri2D.h>
 
 namespace MvsTexturing {
     namespace Base {

@@ -5,11 +5,18 @@ set(CMAKE_CXX_STANDARD 14)
 
 file(GLOB_RECURSE SOURCES ./*.h ./*.hpp ./*.cpp ./*.c)
 
+include_directories(${SOURCE_DIR}/MeshPolyRefinement)
 include_directories(${SOURCE_DIR}/MvsTexturing)
 include_directories(${EIGEN3_INCLUDE_DIR})
+include_directories(${Boost_INCLUDE_DIR})
 
 add_executable(${PROJECT_NAME} ${SOURCES})
 target_include_directories(${PROJECT_NAME} PRIVATE
-        ${MVE_INCLUDE_DIR})
+        ${MVE_INCLUDE_DIR}
+        ${LBP_INCLUDE_DIR}
+        ${RAYINT_INCLUDE_DIR})
 target_link_libraries(${PROJECT_NAME}
-        MvsTexturing-Library mve mve_util)
+        MvsTexturing-Library
+        MeshPolyRefinement-Library
+        Boost::program_options
+        mve mve_util)

@@ -13,7 +13,9 @@ include_directories(${Boost_INCLUDE_DIR})
 include_directories(${TINYPLY_INCLUDE_DIR})
 
 add_executable(${PROJECT_NAME} ${SOURCES})
-target_include_directories(${PROJECT_NAME} PRIVATE ${MVE_INCLUDE_DIR})
+target_include_directories(${PROJECT_NAME} PRIVATE
+        ${MVE_INCLUDE_DIR}
+        ${RAYINT_INCLUDE_DIR})
 target_link_libraries(${PROJECT_NAME} PRIVATE
         MvsTexturing-Library
         MeshPolyRefinement-Library

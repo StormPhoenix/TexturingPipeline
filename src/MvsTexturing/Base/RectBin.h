@@ -8,7 +8,7 @@
 #include <list>
 #include <memory>
 
-#include "Math/Rect2D.h"
+#include <Math/Rect2D.h>
 
 namespace MvsTexturing {
     namespace Base {

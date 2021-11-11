@@ -31,7 +31,7 @@ namespace MvsTexturing {
         bool load_mesh_from_obj(const std::string &filename, AttributeMatrix &V, AttributeMatrix &N,
                                 AttributeMatrix &T, IndexMatrix &F, IndexMatrix &FN, IndexMatrix &FT,
                                 std::vector<std::string> &face_materials,
-                                std::map<std::string, std::string> &material_map);
+                                 std::map<std::string, std::string> &material_map);
 
         bool load_mesh_from_ply(const std::string &filename, AttributeMatrix &V, IndexMatrix &F);
 

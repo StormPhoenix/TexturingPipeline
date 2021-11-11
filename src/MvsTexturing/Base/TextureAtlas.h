@@ -12,8 +12,8 @@
 #include <mve/mesh.h>
 #include <mve/image.h>
 
-#include "RectBin.h"
-#include "TexturePatch.h"
+#include <Base/RectBin.h>
+#include <Base/TexturePatch.h>
 
 namespace MvsTexturing {
     namespace Base {

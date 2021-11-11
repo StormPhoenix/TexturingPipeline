@@ -10,15 +10,16 @@
 
 #include "Base/View.h"
 #include "Utils/Utils.h"
-#include "Utils/Settings.h"
+#include "Parameter.h"
 
 namespace MvsTexturing {
     namespace PhotoMetric {
         bool photo_consistency_check(std::vector<Base::FaceProjectionInfo> *infos,
-                                     std::set<std::size_t> *face_visibility, const Settings &settings) {
+                                     std::set<std::size_t> *face_visibility, const Parameter &param) {
             if (infos->size() == 0) return true;
 
             /* Configuration variables. */
+            // TODO 6e-3?
 //    double const gauss_rejection_threshold = 6e-3;
 //    double const gauss_rejection_threshold = 9e-3;
             double const gauss_rejection_threshold = 1e-2;
@@ -32,8 +33,17 @@ namespace MvsTexturing {
             int const minimal_num_inliers = 4;
 
             float outlier_removal_factor = std::numeric_limits<float>::signaling_NaN();
-            switch (settings.outlier_removal) {
-                case OUTLIER_REMOVAL_NONE:
+            if (param.outlier_removal == Outlier_Removal_None) {
+                return true;
+            } else if (param.outlier_removal == Outlier_Removal_Gauss_Clamping) {
+                outlier_removal_factor = 1.0f;
+            } else if (param.outlier_removal == Outlier_Removal_Gauss_Damping) {
+                outlier_removal_factor = 0.2f;
+            }
+
+            /*
+            switch (param.outlier_removal) {
+                case Outlier_Removal_None:
                     return true;
                 case OUTLIER_REMOVAL_GAUSS_CLAMPING:
                     outlier_removal_factor = 1.0f;
@@ -42,6 +52,7 @@ namespace MvsTexturing {
                     outlier_removal_factor = 0.2f;
                     break;
             }
+             */
 
             // Dataset: mean-color
             Eigen::MatrixX3d inliers(infos->size(), 3);
@@ -107,6 +118,20 @@ namespace MvsTexturing {
                 Eigen::RowVector3d color = Utils::mve_to_eigen(info.mean_color).cast<double>();
                 double gauss_value = Utils::multi_gauss_unnormalized(color, var_mean, covariance_inv);
                 assert(0.0 <= gauss_value && gauss_value <= 1.0);
+
+                if (param.outlier_removal == Outlier_Removal_None) {
+                    return true;
+                } else if (param.outlier_removal == Outlier_Removal_Gauss_Damping) {
+                    info.quality *= gauss_value;
+                } else if (param.outlier_removal == Outlier_Removal_Gauss_Clamping) {
+                    if (gauss_value < gauss_rejection_threshold) {
+                        info.quality = 0.0f;
+                    } else {
+                        face_visibility->insert(info.view_id);
+                    }
+                }
+
+                /*
                 switch (settings.outlier_removal) {
                     case OUTLIER_REMOVAL_NONE:
                         return true;
@@ -121,6 +146,7 @@ namespace MvsTexturing {
                         }
                         break;
                 }
+                 */
             }
             return true;
         }

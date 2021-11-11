@@ -20,7 +20,7 @@
 #include <IO/IO.h>
 #include <Base/TexturePatch.h>
 #include <Base/TextureAtlas.h>
-#include <TextureMapper/AtlasMapper.h>
+#include <Mapper/AtlasMapper.h>
 
 #include <util/timer.h>
 

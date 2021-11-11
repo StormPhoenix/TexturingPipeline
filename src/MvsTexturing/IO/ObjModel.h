@@ -5,7 +5,7 @@
 #ifndef TEXTURINGPIPELINE_OBJMODEL_H
 #define TEXTURINGPIPELINE_OBJMODEL_H
 
-#include "MaterialLib.h"
+#include <IO/MaterialLib.h>
 
 namespace MvsTexturing {
     namespace IO {

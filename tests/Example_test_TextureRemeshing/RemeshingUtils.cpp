@@ -8,7 +8,7 @@
 
 #include <Base/TriMesh.h>
 #include <Base/TexturePatch.h>
-#include <TextureMapper/SceneBuilder.h>
+#include <Mapper/SceneBuilder.h>
 #include <mve/mesh.h>
 #include <mve/mesh_info.h>
 #include <mve/image.h>
