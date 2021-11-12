@@ -8,6 +8,7 @@
 #include <mve/mesh.h>
 #include <acc/bvh_tree.h>
 
+#include <MvsTexturing.h>
 #include <Base/View.h>
 #include <Base/SparseTable.h>
 
@@ -16,6 +17,13 @@
 
 namespace MvsTexturing {
     namespace ViewSelection {
+        namespace Projection {
+            void solve_projection_problem(mve::TriangleMesh::ConstPtr mesh,
+                                          const acc::BVHTree<unsigned int, math::Vec3f> &bvh_tree,
+                                          Base::LabelGraph &graph, std::vector<Base::TextureView> &texture_views,
+                                          const Parameter &param);
+        }
+
         namespace Mrf {
             using DataCosts = Base::SparseTable<std::uint32_t, std::uint16_t, double>;
 

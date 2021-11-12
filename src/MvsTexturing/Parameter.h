@@ -42,6 +42,11 @@ namespace MvsTexturing {
         double viewing_angle_threshold = 85.0f;
         std::string tone_mapping;
         std::string mrf_call_lib = Mrf_Call_Lib_MapMap;
+
+        double planar_score;
+        double angle_threshold;
+        double ratio_threshold;
+        double min_plane_size;
     };
 }
 

@@ -11,8 +11,7 @@ namespace MvsTexturing {
     namespace OutlierDetection {
         typedef std::vector<Base::FaceProjectionInfo> FaceProjectionInfoArray;
 
-        bool detect_photometric_outliers(FaceProjectionInfoArray &infos,
-                                         const Parameter &param,
+        bool detect_photometric_outliers(FaceProjectionInfoArray &infos, const Parameter &param,
                                          std::set<std::size_t> *outliers) {
             if (infos.size() == 0) {
                 return true;

@@ -57,7 +57,6 @@ namespace MvsTexturing {
               */
             bool valid_pixel(math::Vec2f pixel) const;
 
-            /** TODO */
             bool inside(math::Vec3f const & v1, math::Vec3f const & v2, math::Vec3f const & v3) const;
 
             /** Returns the RGB pixel values [0, 1] for the give pixel location. */

@@ -14,21 +14,19 @@
 
 #include <Eigen/Core>
 
-#include "util/exception.h"
-#include "util/file_system.h"
+#include <util/exception.h>
+#include <util/file_system.h>
 
-#include "math/vector.h"
-#include "math/matrix.h"
-#include "math/functions.h"
+#include <math/vector.h>
+#include <math/matrix.h>
+#include <math/functions.h>
+
+#include <mve/mesh.h>
 
 namespace MvsTexturing {
     namespace Utils {
-        /**
-        * Converts an MVE matrix into an Eigen matrix.
-        */
         template<typename T, int M, int N>
-        Eigen::Matrix<T, M, N>
-        mve_to_eigen(math::Matrix<T, M, N> const &mat) {
+        Eigen::Matrix<T, M, N> mve_to_eigen(math::Matrix<T, M, N> const &mat) {
             Eigen::Matrix<T, M, N> ret;
             for (int m = 0; m < M; ++m)
                 for (int n = 0; n < N; ++n)
@@ -36,12 +34,8 @@ namespace MvsTexturing {
             return ret;
         }
 
-        /**
-        * Converts an MVE vector into an Eigen row vector.
-        */
         template<typename T, int N>
-        Eigen::Matrix<T, 1, N>
-        mve_to_eigen(math::Vector<T, N> const &vec) {
+        Eigen::Matrix<T, 1, N> mve_to_eigen(math::Vector<T, N> const &vec) {
             Eigen::Matrix<T, 1, N> ret;
             for (int n = 0; n < N; ++n)
                 ret(0, n) = vec(n);
@@ -49,8 +43,7 @@ namespace MvsTexturing {
         }
 
         template<typename T, int N>
-        T const
-        multi_gauss_unnormalized(Eigen::Matrix<T, 1, N> const &X, Eigen::Matrix<T, 1, N> const &mu,
+        T const multi_gauss_unnormalized(Eigen::Matrix<T, 1, N> const &X, Eigen::Matrix<T, 1, N> const &mu,
                                  Eigen::Matrix<T, N, N> const &covariance_inv) {
 
             Eigen::Matrix<T, 1, N> mean_removed = X - mu;
@@ -71,13 +64,8 @@ namespace MvsTexturing {
             return "th";
         }
 
-        /**
-        * Write vector to csv file with "Index, $header" as header.
-        * @throws util::FileException
-        */
         template<typename T>
-        void
-        write_vector_to_csv(std::string const &filename, std::vector<T> const &vector, std::string const &header) {
+        void write_vector_to_csv(std::string const &filename, std::vector<T> const &vector, std::string const &header) {
             std::ofstream out(filename.c_str());
             if (!out.good())
                 throw util::FileException(filename, std::strerror(errno));
@@ -89,14 +77,8 @@ namespace MvsTexturing {
             out.close();
         }
 
-
-        /**
-        * Write vector to binary file.
-        * @throws util::FileException
-        */
         template<typename T>
-        void
-        vector_to_file(std::string const &filename, std::vector<T> const &vector) {
+        void vector_to_file(std::string const &filename, std::vector<T> const &vector) {
             std::ofstream out(filename.c_str(), std::ios::binary);
             if (!out.good())
                 throw util::FileException(filename, std::strerror(errno));
@@ -105,13 +87,8 @@ namespace MvsTexturing {
             out.close();
         }
 
-        /**
-        * Loads vector from binary file.
-        * @throws util::FileException
-        */
         template<typename T>
-        std::vector<T>
-        vector_from_file(std::string const &filename) {
+        std::vector<T> vector_from_file(std::string const &filename) {
             std::ifstream in(filename.c_str(), std::ios::binary);
             if (!in.good())
                 throw util::FileException(filename, std::strerror(errno));
@@ -125,12 +102,7 @@ namespace MvsTexturing {
             return vector;
         }
 
-        /**
-          * Writes the given string to the file given by filename.
-          * @throws util::FileException
-          */
-        inline void
-        write_string_to_file(std::string const &filename, std::string const &string) {
+        inline void write_string_to_file(std::string const &filename, std::string const &string) {
             std::ofstream out(filename.c_str());
             if (!out.good()) {
                 throw util::FileException(filename, std::strerror(errno));
@@ -140,12 +112,7 @@ namespace MvsTexturing {
             out.close();
         }
 
-        /**
-          * returns the corresponding jet color encoding for the given value.
-          * @warning asserts values within the interval [0, 1]
-          */
-        inline math::Vec4f
-        get_jet_color(float value) {
+        inline math::Vec4f get_jet_color(float value) {
             assert(0.0f <= value && value <= 1.0f);
             float mvalue = 4 * value;
             float red = math::clamp(std::min(mvalue - 1.5f, -mvalue + 4.5f));

@@ -11,6 +11,7 @@ include_directories(${EIGEN3_INCLUDE_DIR})
 include_directories(${TINYPLY_INCLUDE_DIR})
 include_directories(${Boost_INCLUDE_DIR})
 include_directories(${LIBIGL_DIR}/include)
+include_directories(${SOURCE_DIR}/MeshPolyRefinement)
 include_directories(${SOURCE_DIR}/MvsTexturing)
 
 set(TBB_INCLUDE_DIRS "/usr/local/opt/tbb@2020/include")

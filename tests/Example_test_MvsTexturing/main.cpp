@@ -7,9 +7,9 @@
 
 #include <MvsTexturing.h>
 #include <Base/SparseTable.h>
-#include <Mapper/ViewSelection.h>
 #include <Mapper/AtlasMapper.h>
 #include <Mapper/SeamSmoother.h>
+#include <Mapper/ViewSelection.h>
 #include <Parameter.h>
 #include <Utils/Utils.h>
 
@@ -90,9 +90,10 @@ int main(int argc, char **argv) {
                 run_mrf_method(input_mesh, bvh_tree, param, graph, texture_views);
                 std::cout << "\n\tMRF optimization done. (Took: " << timer.get_elapsed_sec() << " s)\n";
             } else if (param.method_type == "projection") {
-                // TODO
-                std::cout << "\tView selection method not supported: " << param.method_type << std::endl;
-                return 0;
+                std::cout << "\tRunning Projection-algorithm ... " << std::endl;
+                timer.reset();
+                VS::Projection::solve_projection_problem(input_mesh, bvh_tree, graph, texture_views, param);
+                std::cout << "\n\tProjection method done. (Took: " << timer.get_elapsed_sec() << " s)\n";
             } else {
                 std::cout << "\tView selection method not supported: " << param.method_type << std::endl;
                 return 0;
@@ -236,6 +237,11 @@ void parse_args(int argc, char **argv, MvsTexturing::Parameter &param) {
 
     param.viewing_angle_threshold = 85.0f;
     param.tone_mapping = vm["tone_mapping"].as<std::string>();
+
+    param.planar_score = 0.3;
+    param.angle_threshold = 30.0;
+    param.ratio_threshold = 20.0;
+    param.min_plane_size = 5;
 }
 
 void preprocessing(int argc, char **argv) {

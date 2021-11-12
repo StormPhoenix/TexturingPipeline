@@ -14,11 +14,17 @@
 #define _USE_OPENMP
 #include <LBP.h>
 
+#include <Base/TriMesh.h>
+#include <DataIO/IO.h>
+#include <PlaneEstimation/RegionGrowing.h>
+#include <PlaneEstimation/RegionExpand.h>
+
 #include "Base/View.h"
 #include "Base/LabelGraph.h"
 #include "Base/SparseTable.h"
 #include "Mapper/FaceOutlierDetection.h"
 #include "Utils/Timer.h"
+#include "Utils/MeshAdapter.h"
 #include "Math/Histogram.h"
 #include "Parameter.h"
 
@@ -145,91 +151,190 @@ namespace MvsTexturing {
             }
         }
 
-        void compute_face_camera_photometric(MeshConstPtr mesh,
-                                             TextureViewList &texture_views,
-                                             std::vector<std::set<std::size_t>> &face_visibility_sets,
-                                             const Parameter &param) {
-            const std::vector<unsigned int> &faces = mesh->get_faces();
-            const std::vector<math::Vec3f> &vertices = mesh->get_vertices();
-            int n_views = texture_views.size();
+        namespace Projection {
+            using PlaneGroup = MeshPolyRefinement::Base::PlaneGroup;
+            using TriMesh = MeshPolyRefinement::Base::TriMesh;
+            using LabelGraph = MvsTexturing::Base::LabelGraph;
+            using FacesVisibility = std::vector<std::set<std::size_t>>;
 
-            // Build bvh tree
-            BVHTree bvh_tree(faces, vertices);
+            void calculate_face_visibility(MeshConstPtr mesh, const BVHTree &bvh_tree,
+                                           TextureViewList &texture_views, const Parameter &param,
+                                           FacesVisibility &face_visibilities) {
+                const std::vector<unsigned int> &faces = mesh->get_faces();
+                const std::vector<math::Vec3f> &vertices = mesh->get_vertices();
 
-            // Photo-consistency check
-            const std::size_t num_faces = faces.size() / 3;
-            FaceProjectionInfoList face_projection_infos(num_faces);
-            calculate_face_projection_infos(mesh, bvh_tree, param, texture_views, &face_projection_infos);
+                const std::size_t n_faces = mesh->get_faces().size() / 3;
+                const std::size_t n_views = texture_views.size();
 
-            // TODO temporay comment
-            /*
-            std::vector<std::set<std::size_t>> face_photometrics(num_faces);
-            for (std::size_t i = 0; i < face_projection_infos.size(); i++) {
-                std::vector<Base::FaceProjectionInfo> &infos = face_projection_infos.at(i);
-                PhotoMetric::photo_consistency_check(&infos, &(face_photometrics.at(i)), param);
-            }
-             */
+                FaceProjectionInfoList face_proj_info_list(n_faces);
+                calculate_face_projection_infos(mesh, bvh_tree, param, texture_views, &face_proj_info_list);
 
-            for (int j = 0; j < n_views; j++) {
-                const Base::TextureView *texture_view = &(texture_views.at(j));
+                // camera outlier detection
+                std::vector<std::set<std::size_t>> face_outliers(n_faces);
+                for (std::size_t i = 0; i < face_proj_info_list.size(); i++) {
+                    std::vector<Base::FaceProjectionInfo> &infos = face_proj_info_list.at(i);
+                    OutlierDetection::detect_photometric_outliers(infos, param, &(face_outliers.at(i)));
+                }
+
+                for (int j = 0; j < n_views; j++) {
+                    const Base::TextureView *texture_view = &(texture_views.at(j));
 #pragma omp parallel for schedule(dynamic)
-                for (int i = 0; i < faces.size(); i += 3) {
-                    std::size_t face_id = i / 3;
-                    // TODO temporay comment
-                    /*
-                    if (face_photometrics[face_id].find(j) == face_photometrics[face_id].end()) {
-                        continue;
-                    }
-                     */
-
-                    const math::Vec3f &v0 = vertices[faces[i]];
-                    const math::Vec3f &v1 = vertices[faces[i + 1]];
-                    const math::Vec3f &v2 = vertices[faces[i + 2]];
-
-                    // projection area check
-                    if (!texture_view->inside(v0, v1, v2)) {
-                        // TODO 没有投射到，但应该考虑给 image 加一个 padding，不然在某些特殊情况会出现黑色边边
-                        continue;
-                    }
-
-                    // visibility check
-                    const math::Vec3f *samples[] = {&v0, &v1, &v2};
-                    const math::Vec3f &view_position = texture_view->get_pos();
-
-                    bool visible = true;
-                    for (int k = 0; k < 3; k++) {
-                        BVHTree::Ray ray;
-                        ray.origin = *samples[k];
-                        ray.dir = view_position - ray.origin;
-                        ray.tmax = ray.dir.norm();
-                        ray.tmin = ray.tmax * 0.0001f;
-                        ray.dir.normalize();
-
-                        BVHTree::Hit hit;
-                        if (bvh_tree.intersect(ray, &hit)) {
-                            visible = false;
-                            break;
+                    for (int i = 0; i < n_faces * 3; i += 3) {
+                        std::size_t face_id = i / 3;
+                        if (param.outlier_removal != Outlier_Removal_None) {
+                            if (face_outliers[face_id].find(j) != face_outliers[face_id].end()) {
+                                continue;
+                            }
                         }
-                    }
 
-                    if (!visible) {
-                        continue;
-                    } else {
-                        face_visibility_sets[face_id].insert(j);
+                        const math::Vec3f &v0 = vertices[faces[i]];
+                        const math::Vec3f &v1 = vertices[faces[i + 1]];
+                        const math::Vec3f &v2 = vertices[faces[i + 2]];
+
+                        if (!texture_view->inside(v0, v1, v2)) {
+                            // TODO 没有投射到，但应该考虑给 image 加一个 padding，不然在某些特殊情况会出现黑色边边
+                            continue;
+                        }
+
+                        const math::Vec3f *samples[] = {&v0, &v1, &v2};
+                        const math::Vec3f &view_position = texture_view->get_pos();
+
+                        bool visible = true;
+                        for (int k = 0; k < 3; k++) {
+                            BVHTree::Ray ray;
+                            ray.origin = *samples[k];
+                            ray.dir = view_position - ray.origin;
+                            ray.tmax = ray.dir.norm();
+                            ray.tmin = ray.tmax * 0.0001f;
+                            ray.dir.normalize();
+
+                            BVHTree::Hit hit;
+                            if (bvh_tree.intersect(ray, &hit)) {
+                                visible = false;
+                                break;
+                            }
+                        }
+
+                        if (!visible) {
+                            continue;
+                        } else {
+                            face_visibilities[face_id].insert(j);
+                        }
                     }
                 }
             }
-        }
 
-        namespace Projection {
-            void calculate_face_visibility(MeshConstPtr mesh,
-                                           const BVHTree &bvh_tree,
-                                           const Parameter &param) {
+            double face_view_cos(long long face_id, const Base::TextureView &texture_view, MeshConstPtr mesh) {
+                const math::Vec3f &view_pos = texture_view.get_pos();
+                const std::vector<unsigned int> &faces = mesh->get_faces();
+                const std::vector<math::Vec3f> &vertices = mesh->get_vertices();
+                const mve::TriangleMesh::NormalList &face_normals = mesh->get_face_normals();
 
+                const math::Vec3f &v1 = vertices[faces[face_id * 3]];
+                const math::Vec3f &v2 = vertices[faces[face_id * 3 + 1]];
+                const math::Vec3f &v3 = vertices[faces[face_id * 3 + 2]];
+                const math::Vec3f face_center = (v1 + v2 + v3) / 3.0f;
+
+                const math::Vec3f &face_normal = face_normals[face_id];
+
+                const math::Vec3f face_to_view_vec = (view_pos - face_center).normalized();
+                return face_to_view_vec.dot(face_normal);
             }
 
-            void solve_projection_problem() {
+            void project_to_plane(const MeshConstPtr mesh, const PlaneGroup &group,
+                                  const TextureViewList &texture_views,
+                                  const FacesVisibility &faces_visibility,
+                                  LabelGraph &graph) {
+                double max_score = 0.f;
+                int selected_camera = -1;
+                bool full_overlap = true;
+                const int n_views = texture_views.size();
+                for (int camera_id = 1; camera_id <= n_views; camera_id++) {
+                    const Base::TextureView &texture_view = texture_views.at(camera_id - 1);
 
+                    double avg_cosine = 0;
+                    int overlap_count = 0;
+                    bool is_full_overlap = true;
+
+                    for (std::size_t i = 0; i < group.m_indices.size(); i++) {
+                        long long face_id = group.m_indices[i];
+                        const std::set<std::size_t> &visibility = faces_visibility[face_id];
+
+                        if (visibility.find(camera_id - 1) != visibility.end()) {
+                            overlap_count++;
+                            avg_cosine += face_view_cos(face_id, texture_view, mesh);
+                        } else {
+                            is_full_overlap = false;
+                        }
+                    }
+
+                    if (overlap_count > 0) {
+                        double overlap_rate = double(overlap_count) / group.m_indices.size();
+                        avg_cosine = avg_cosine / overlap_count;
+
+                        double camera_score = avg_cosine * overlap_rate;
+                        if (camera_score > max_score) {
+                            max_score = camera_score;
+                            selected_camera = camera_id;
+                            full_overlap = is_full_overlap;
+                        }
+                    }
+                }
+
+                if (selected_camera != -1) {
+                    if (full_overlap) {
+                        for (std::size_t i = 0; i < group.m_indices.size(); i++) {
+                            graph.set_label(group.m_indices[i], selected_camera);
+                        }
+                    } else {
+                        for (std::size_t i = 0; i < group.m_indices.size(); i++) {
+                            std::size_t face_id = group.m_indices[i];
+
+                            const std::set<std::size_t> &visibility = faces_visibility[face_id];
+                            if (visibility.find(selected_camera - 1) != visibility.end()) {
+                                graph.set_label(face_id, selected_camera);
+                            }
+                        }
+                    }
+                }
+            }
+
+            void solve_projection_problem(MeshConstPtr mesh, const BVHTree &bvh_tree, Base::LabelGraph &graph,
+                                          TextureViewList &texture_views, const Parameter &param) {
+                // visibility detection
+                std::vector<std::set<std::size_t>> face_visibilities(mesh->get_faces().size() / 3);
+                calculate_face_visibility(mesh, bvh_tree, texture_views, param, face_visibilities);
+
+                // TODO do not consider default projection case
+
+                // region growing
+                TriMesh tri_mesh;
+                Utils::mveMesh_to_triMesh(mesh, tri_mesh);
+                {
+                    using namespace MeshPolyRefinement;
+                    // detect planes on mesh using region-growing
+                    PlaneEstimation::region_growing_plane_estimate(tri_mesh, param.planar_score, param.angle_threshold,
+                                                                   param.ratio_threshold, param.min_plane_size);
+
+                    // expand plane segment regions
+                    PlaneEstimation::plane_region_expand(tri_mesh, 50.0, 45.0);
+
+                    // filter small non-plane regions
+                    PlaneEstimation::plane_region_refine(tri_mesh);
+
+                    // merge parallel adjacent plane segments
+                    PlaneEstimation::plane_region_merge(tri_mesh);
+
+                    // TODO save intermedia result
+                    {
+                        MeshPolyRefinement::IO::save_mesh_plane_segments("./proj_intermedia_res.ply", tri_mesh);
+                    }
+                }
+
+                for (std::size_t group_id = 0; group_id < tri_mesh.m_plane_groups.size(); group_id++) {
+                    PlaneGroup &group = tri_mesh.m_plane_groups[group_id];
+                    project_to_plane(mesh, group, texture_views, face_visibilities, graph);
+                }
             }
         }
 
@@ -289,11 +394,9 @@ namespace MvsTexturing {
                 std::cout << "\tClamping qualities to " << percentile << " within normalization." << std::endl;
             }
 
-            void calculate_data_costs(MeshConstPtr mesh,
-                                      const BVHTree &bvh_tree,
-                                      TextureViewList &texture_views,
-                                      const Parameter &param, DataCosts *data_costs) {
-
+            void calculate_data_costs(MeshConstPtr mesh, const BVHTree &bvh_tree,
+                                      TextureViewList &texture_views, const Parameter &param,
+                                      DataCosts *data_costs) {
                 std::size_t const num_faces = mesh->get_faces().size() / 3;
                 std::size_t const num_views = texture_views.size();
 
