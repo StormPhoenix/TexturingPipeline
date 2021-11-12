@@ -1,7 +1,6 @@
 ### MVS Texturing
 
 - 待解决问题
-    - 引入 Projection 代码
     - 引入 GCOptimizatin
     
 - Mapmap-Cpu 与 LBP 对比结果
@@ -22,12 +21,23 @@
     修改 DataCost 为 quality 的百分比。
     ```
   
-    - 人为实现投影方法。
+    - 人为实现投影方法
         - 给定平面让相机投影，原本的做法是考虑相机能够覆盖的面数、每个面上相机倾斜角来决定用那种相机覆盖。
-        但现在看来应该考虑使用 projection - info 的信息。（暂时先集成投影程序再说）
+        但现在看来应该考虑使用 projection - info 的信息（只考虑 cos<face_normal, camera_ray> 和 face overlap rate 是不够的，这忽略了图像信息）
+        
+        - 每次只选一张相机用于 plane，未覆盖到的区域就不管了，这显然不合适
+        
+        - 对于一个平面，每个相机只有两种状态：投射区域要么全贴，要么不贴（不考虑 photo-metric 判断的情况）。这和实际情况不符：存在一个大平面，投射的部分区域由于和相机
+        过远导致视角倾斜图像失真。
+        
+    - 人为投影方法无法消除 "不存在物体" 的边缘
+        - "不存在物体" 是通过 photo-metric 消除的，但 photo-metric 无法细化到检测 "不存在物体" 的边缘 
     
 ### Test Cases
-- aym
+- aym(normal case)
     - WorkDirectory: /Users/stormphoenix/Workspace/Projects/CLionProjects/3dReconstruction/Dataset/aym
     - Options: --scene_file ./visualSFM/nvm_anyuanmen.nvm --input_mesh ./Input/model_labeled.ply --output_prefix ./Output_TexturePipeline/Textured_model
-    - Options: --scene_file ./visualSFM/nvm_anyuanmen.nvm --input_mesh ./Input/model_labeled.ply --output_prefix ./Output_TexturePipeline/Textured_model --mrf_call_lib mapmap --outlier_removal gauss_clamping --method_type projection
+
+- aym(debug case)
+    - WorkDirectory: /Users/stormphoenix/Workspace/Projects/CLionProjects/3dReconstruction/Dataset/aym
+    - Options: --scene_file ./visualSFM/nvm_anyuanmen.nvm --input_mesh ./Input/model_labeled.ply --output_prefix ./Output_TexturePipeline/Textured_model --mrf_call_lib mapmap --outlier_removal gauss_clamping --method_type projection --keep_unseen_faces true --skip_global_seam_leveling true --skip_local_seam_leveling true --skip_hole_filling true
