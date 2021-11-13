@@ -5,6 +5,7 @@
 #include <set>
 #include <vector>
 #include <iostream>
+#include <algorithm>
 
 #include <mve/mesh.h>
 #include <mve/image_color.h>
@@ -241,17 +242,35 @@ namespace MvsTexturing {
                 return face_to_view_vec.dot(face_normal);
             }
 
+            namespace __inner__ {
+                struct CameraScore {
+                    int score;
+                    int camera_id;
+                    bool is_full_overlap;
+
+                    CameraScore() : score(0), camera_id(-1), is_full_overlap(false) {}
+
+                    CameraScore(int s, int c, bool overlap) :
+                            score(s), camera_id(c), is_full_overlap(overlap) {}
+                };
+
+                bool func_camera_score_cmp(const struct CameraScore &a, const struct CameraScore &b) {
+                    return a.score > b.score;
+                }
+            }
+
             void project_to_plane(const MeshConstPtr mesh, const PlaneGroup &group,
-                                  const TextureViewList &texture_views,
-                                  const FacesVisibility &faces_visibility,
+                                  const TextureViewList &texture_views, const FacesVisibility &faces_visibility,
                                   LabelGraph &graph) {
-                double max_score = 0.f;
-                int selected_camera = -1;
-                bool full_overlap = true;
+                // TODO temporary comment
+//                double max_score = 0.f;
+//                int selected_camera = -1;
+//                bool full_overlap = true;
                 const int n_views = texture_views.size();
+
+                std::vector<__inner__::CameraScore> camera_scores;
                 for (int camera_id = 1; camera_id <= n_views; camera_id++) {
                     const Base::TextureView &texture_view = texture_views.at(camera_id - 1);
-
                     double avg_cosine = 0;
                     int overlap_count = 0;
                     bool is_full_overlap = true;
@@ -273,29 +292,67 @@ namespace MvsTexturing {
                         avg_cosine = avg_cosine / overlap_count;
 
                         double camera_score = avg_cosine * overlap_rate;
-                        if (camera_score > max_score) {
-                            max_score = camera_score;
-                            selected_camera = camera_id;
-                            full_overlap = is_full_overlap;
-                        }
+                        camera_scores.push_back(__inner__::CameraScore(camera_score, camera_id, is_full_overlap));
+                        // TODO temporary comment
+//                        if (camera_score > max_score) {
+//                            max_score = camera_score;
+//                            selected_camera = camera_id;
+//                            full_overlap = is_full_overlap;
+//                        }
                     }
                 }
 
-                if (selected_camera != -1) {
-                    if (full_overlap) {
-                        for (std::size_t i = 0; i < group.m_indices.size(); i++) {
-                            graph.set_label(group.m_indices[i], selected_camera);
-                        }
-                    } else {
+                std::make_heap(camera_scores.begin(), camera_scores.end(), __inner__::func_camera_score_cmp);
+                {
+                    bool is_plane_overlap = false;
+                    int rest_cameras = camera_scores.size();
+                    while (!is_plane_overlap && rest_cameras > 0) {
+
+                        int select_camera_id = camera_scores[0].camera_id;
+                        bool full_overlap = camera_scores[0].is_full_overlap;
+                        std::pop_heap(camera_scores.begin(), camera_scores.begin() + rest_cameras,
+                                      __inner__::func_camera_score_cmp);
+
+                        is_plane_overlap = true;
                         for (std::size_t i = 0; i < group.m_indices.size(); i++) {
                             std::size_t face_id = group.m_indices[i];
+                            if (graph.get_label(face_id) == 0) {
+                                // haven't set label
+                                const std::set<std::size_t> &vis = faces_visibility[face_id];
+                                if (vis.find(select_camera_id) != vis.end()) {
+                                    graph.set_label(face_id, select_camera_id);
+                                } else {
+                                    is_plane_overlap = false;
+                                }
+                            } else {
+                                // TODO delete
+                                // nothing to do
+                            }
+                        }
 
-                            const std::set<std::size_t> &visibility = faces_visibility[face_id];
-                            if (visibility.find(selected_camera - 1) != visibility.end()) {
-                                graph.set_label(face_id, selected_camera);
+                        rest_cameras--;
+                        std::make_heap(camera_scores.begin(), camera_scores.begin() + rest_cameras,
+                                       __inner__::func_camera_score_cmp);
+                    }
+
+                    /*
+                    if (selected_camera != -1) {
+                        if (full_overlap) {
+                            for (std::size_t i = 0; i < group.m_indices.size(); i++) {
+                                graph.set_label(group.m_indices[i], selected_camera);
+                            }
+                        } else {
+                            for (std::size_t i = 0; i < group.m_indices.size(); i++) {
+                                std::size_t face_id = group.m_indices[i];
+
+                                const std::set<std::size_t> &visibility = faces_visibility[face_id];
+                                if (visibility.find(selected_camera - 1) != visibility.end()) {
+                                    graph.set_label(face_id, selected_camera);
+                                }
                             }
                         }
                     }
+                     */
                 }
             }
 
