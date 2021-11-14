@@ -58,9 +58,12 @@ namespace MvsTexturing {
                     for (std::size_t row = 0; row < infos.size(); ++row) {
                         if (!is_inlier[row]) {
                             infos.at(row).quality = 0.0f;
+                            infos.at(row).gauss_value = 0.0f;
                             if (outliers != nullptr) {
                                 outliers->insert(infos.at(row).view_id);
                             }
+                        } else {
+                            infos.at(row).gauss_value = 1.0f;
                         }
                     }
                     return true;
@@ -104,6 +107,7 @@ namespace MvsTexturing {
                             outliers->insert(info.view_id);
                         }
                     }
+                    info.gauss_value = gauss_value;
                 } else if (param.outlier_removal == Outlier_Removal_Gauss_Damping) {
                     if (gauss_value < gauss_rejection_threshold) {
                         if (outliers != nullptr) {
@@ -111,6 +115,7 @@ namespace MvsTexturing {
                         }
                     }
                     info.quality *= gauss_value;
+                    info.gauss_value = gauss_value;
                 }
             }
             return true;

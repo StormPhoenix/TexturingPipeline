@@ -115,9 +115,9 @@ namespace MvsTexturing {
                         }
 
                         float total_angle = 0.5 * (viewing_angle + viewing_direction.dot(view_to_face_vec));
-                        Base::FaceProjectionInfo info = {j, 0.0f, math::Vec3f(0.0f, 0.0f, 0.0f),
-//                                           total_angle};
-                                                         viewing_angle};
+                        Base::FaceProjectionInfo info = Base::FaceProjectionInfo(j, 0.0f,
+                                                                                 math::Vec3f(0.0f, 0.0f, 0.0f),
+                                                                                 viewing_angle);
 
                         /* Calculate quality. */
                         texture_view->get_face_info(v1, v2, v3, &info, param);
@@ -153,10 +153,43 @@ namespace MvsTexturing {
         }
 
         namespace Projection {
+            namespace __inner__ {
+                struct CameraScore {
+                    double score;
+                    int camera_id;
+                    bool is_full_overlap;
+
+                    CameraScore() : score(0.), camera_id(-1), is_full_overlap(false) {}
+
+                    CameraScore(double s, int c, bool overlap) :
+                            score(s), camera_id(c), is_full_overlap(overlap) {}
+                };
+
+                bool func_camera_score_cmp(const struct CameraScore &a, const struct CameraScore &b) {
+                    return a.score < b.score;
+                }
+
+                struct FaceQuality {
+                    std::uint16_t view_id;
+                    float quality = 0.0f;
+                    double gauss_value = 0.0f;
+
+                    explicit FaceQuality(std::uint16_t vid) : view_id(vid) {}
+
+                    explicit FaceQuality(std::uint16_t vid, float q, double g) :
+                            view_id(vid), quality(q), gauss_value(g) {}
+
+                    bool operator<(const FaceQuality &other) const {
+                        return view_id < other.view_id;
+                    }
+                };
+            }
+
             using PlaneGroup = MeshPolyRefinement::Base::PlaneGroup;
             using TriMesh = MeshPolyRefinement::Base::TriMesh;
             using LabelGraph = MvsTexturing::Base::LabelGraph;
-            using FacesVisibility = std::vector<std::set<std::size_t>>;
+            using FacesVisibility = std::vector<std::set<__inner__::FaceQuality>>;
+//            using FacesVisibility = std::vector<std::set<std::size_t>>;
 
             void calculate_face_visibility(MeshConstPtr mesh, const BVHTree &bvh_tree,
                                            TextureViewList &texture_views, const Parameter &param,
@@ -177,50 +210,20 @@ namespace MvsTexturing {
                     OutlierDetection::detect_photometric_outliers(infos, param, &(face_outliers.at(i)));
                 }
 
-                for (int j = 0; j < n_views; j++) {
-                    const Base::TextureView *texture_view = &(texture_views.at(j));
 #pragma omp parallel for schedule(dynamic)
-                    for (int i = 0; i < n_faces * 3; i += 3) {
-                        std::size_t face_id = i / 3;
+                for (int face_id = 0; face_id < n_faces; face_id++) {
+                    const std::vector<Base::FaceProjectionInfo> &face_infos = face_proj_info_list[face_id];
+                    for (int proj_id = 0; proj_id < face_infos.size(); proj_id++) {
+                        const Base::FaceProjectionInfo &info = face_infos[proj_id];
                         if (param.outlier_removal != Outlier_Removal_None) {
-                            if (face_outliers[face_id].find(j) != face_outliers[face_id].end()) {
+                            if (face_outliers[face_id].find(info.view_id) != face_outliers[face_id].end()) {
                                 continue;
                             }
                         }
 
-                        const math::Vec3f &v0 = vertices[faces[i]];
-                        const math::Vec3f &v1 = vertices[faces[i + 1]];
-                        const math::Vec3f &v2 = vertices[faces[i + 2]];
-
-                        if (!texture_view->inside(v0, v1, v2)) {
-                            // TODO 没有投射到，但应该考虑给 image 加一个 padding，不然在某些特殊情况会出现黑色边边
-                            continue;
-                        }
-
-                        const math::Vec3f *samples[] = {&v0, &v1, &v2};
-                        const math::Vec3f &view_position = texture_view->get_pos();
-
-                        bool visible = true;
-                        for (int k = 0; k < 3; k++) {
-                            BVHTree::Ray ray;
-                            ray.origin = *samples[k];
-                            ray.dir = view_position - ray.origin;
-                            ray.tmax = ray.dir.norm();
-                            ray.tmin = ray.tmax * 0.0001f;
-                            ray.dir.normalize();
-
-                            BVHTree::Hit hit;
-                            if (bvh_tree.intersect(ray, &hit)) {
-                                visible = false;
-                                break;
-                            }
-                        }
-
-                        if (!visible) {
-                            continue;
-                        } else {
-                            face_visibilities[face_id].insert(j);
-                        }
+//                        face_visibilities[face_id].insert(info.view_id);
+                        face_visibilities[face_id].insert(
+                                __inner__::FaceQuality(info.view_id, info.quality, info.gauss_value));
                     }
                 }
             }
@@ -242,20 +245,56 @@ namespace MvsTexturing {
                 return face_to_view_vec.dot(face_normal);
             }
 
-            namespace __inner__ {
-                struct CameraScore {
-                    double score;
-                    int camera_id;
-                    bool is_full_overlap;
+            void camera_project_to_plane(const PlaneGroup &group,
+                                         const FacesVisibility &f_visibility,
+                                         const int select_camera_id,
+                                         LabelGraph &graph,
+                                         bool &is_last_camera) {
+                is_last_camera = true;
+                for (std::size_t i = 0; i < group.m_indices.size(); i++) {
+                    std::size_t face_id = group.m_indices[i];
+                    if (graph.get_label(face_id) == 0) {
+                        // haven't set label
+                        const std::set<__inner__::FaceQuality> &vis = f_visibility[face_id];
+                        if (vis.find(__inner__::FaceQuality(select_camera_id - 1)) != vis.end()) {
+                            graph.set_label(face_id, select_camera_id);
+                        } else {
+                            is_last_camera = false;
+                        }
+                    } else {
+                        // TODO delete
+                        // nothing to do
+                    }
+                }
 
-                    CameraScore() : score(0.), camera_id(-1), is_full_overlap(false) {}
+                // check boundary texture
+                for (std::size_t i = 0; i < group.m_indices.size(); i++) {
+                    std::size_t face_id = group.m_indices[i];
+                    if (graph.get_label(face_id) != select_camera_id) {
+                        continue;
+                    }
 
-                    CameraScore(double s, int c, bool overlap) :
-                            score(s), camera_id(c), is_full_overlap(overlap) {}
-                };
+                    __inner__::FaceQuality cur_quality = __inner__::FaceQuality(select_camera_id - 1);
+                    const std::vector<std::size_t> &adj_face_ids = graph.get_adj_nodes(face_id);
+                    for (std::size_t adj_face_id : adj_face_ids) {
+                        std::size_t adj_label = graph.get_label(adj_face_id);
+                        if (adj_label != 0 && adj_label != select_camera_id) {
+                            const std::set<__inner__::FaceQuality> &adj_vis = f_visibility[adj_face_id];
+                            if (adj_vis.find(cur_quality) != adj_vis.end()) {
+                                // can expand
+                                __inner__::FaceQuality adj_quality = __inner__::FaceQuality(adj_label - 1);
+                                double adj_gauss_value = adj_vis.find(adj_quality)->gauss_value;
+                                double cur_gauss_value = adj_vis.find(cur_quality)->gauss_value;
 
-                bool func_camera_score_cmp(const struct CameraScore &a, const struct CameraScore &b) {
-                    return a.score < b.score;
+                                if (adj_gauss_value < cur_gauss_value) {
+                                    graph.set_label(adj_face_id, select_camera_id);
+                                }
+                            } else {
+                                // can't expand
+                                // TODO
+                            }
+                        }
+                    }
                 }
             }
 
@@ -273,9 +312,9 @@ namespace MvsTexturing {
 
                     for (std::size_t i = 0; i < group.m_indices.size(); i++) {
                         long long face_id = group.m_indices[i];
-                        const std::set<std::size_t> &visibility = faces_visibility[face_id];
+                        const std::set<__inner__::FaceQuality> &visibility = faces_visibility[face_id];
 
-                        if (visibility.find(camera_id - 1) != visibility.end()) {
+                        if (visibility.find(__inner__::FaceQuality(camera_id - 1)) != visibility.end()) {
                             overlap_count++;
                             avg_cosine += face_view_cos(face_id, texture_view, mesh);
                         } else {
@@ -297,29 +336,11 @@ namespace MvsTexturing {
                     bool is_plane_overlap = false;
                     int rest_cameras = camera_scores.size();
                     while (!is_plane_overlap && rest_cameras > 0) {
-
                         int select_camera_id = camera_scores[0].camera_id;
-                        bool full_overlap = camera_scores[0].is_full_overlap;
                         std::pop_heap(camera_scores.begin(), camera_scores.begin() + rest_cameras,
                                       __inner__::func_camera_score_cmp);
 
-                        is_plane_overlap = true;
-                        for (std::size_t i = 0; i < group.m_indices.size(); i++) {
-                            std::size_t face_id = group.m_indices[i];
-                            if (graph.get_label(face_id) == 0) {
-                                // haven't set label
-                                const std::set<std::size_t> &vis = faces_visibility[face_id];
-                                if (vis.find(select_camera_id - 1) != vis.end()) {
-                                    graph.set_label(face_id, select_camera_id);
-                                } else {
-                                    is_plane_overlap = false;
-                                }
-                            } else {
-                                // TODO delete
-                                // nothing to do
-                            }
-                        }
-
+                        camera_project_to_plane(group, faces_visibility, select_camera_id, graph, is_plane_overlap);
                         rest_cameras--;
                     }
                 }
@@ -328,7 +349,7 @@ namespace MvsTexturing {
             void solve_projection_problem(MeshConstPtr mesh, const BVHTree &bvh_tree, Base::LabelGraph &graph,
                                           TextureViewList &texture_views, const Parameter &param) {
                 // visibility detection
-                std::vector<std::set<std::size_t>> face_visibilities(mesh->get_faces().size() / 3);
+                std::vector<std::set<__inner__::FaceQuality>> face_visibilities(mesh->get_faces().size() / 3);
                 calculate_face_visibility(mesh, bvh_tree, texture_views, param, face_visibilities);
 
                 // TODO do not consider default projection case

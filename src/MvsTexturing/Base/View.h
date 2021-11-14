@@ -22,8 +22,14 @@ namespace MvsTexturing {
             float quality;
             math::Vec3f mean_color;
             float view_angle;
+            double gauss_value = 1.0f;
 
-            bool operator<(FaceProjectionInfo const & other) const {
+            explicit FaceProjectionInfo(std::uint16_t _view_id, float _quality,
+                               math::Vec3f _mean_color, float _view_angle) :
+                    view_id(_view_id), quality(_quality),
+                    mean_color(_mean_color), view_angle(_view_angle) {}
+
+            bool operator<(FaceProjectionInfo const &other) const {
                 return view_id < other.view_id;
             }
         };
