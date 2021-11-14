@@ -244,18 +244,18 @@ namespace MvsTexturing {
 
             namespace __inner__ {
                 struct CameraScore {
-                    int score;
+                    double score;
                     int camera_id;
                     bool is_full_overlap;
 
-                    CameraScore() : score(0), camera_id(-1), is_full_overlap(false) {}
+                    CameraScore() : score(0.), camera_id(-1), is_full_overlap(false) {}
 
-                    CameraScore(int s, int c, bool overlap) :
+                    CameraScore(double s, int c, bool overlap) :
                             score(s), camera_id(c), is_full_overlap(overlap) {}
                 };
 
                 bool func_camera_score_cmp(const struct CameraScore &a, const struct CameraScore &b) {
-                    return a.score > b.score;
+                    return a.score < b.score;
                 }
             }
 
