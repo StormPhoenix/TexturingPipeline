@@ -262,10 +262,6 @@ namespace MvsTexturing {
             void project_to_plane(const MeshConstPtr mesh, const PlaneGroup &group,
                                   const TextureViewList &texture_views, const FacesVisibility &faces_visibility,
                                   LabelGraph &graph) {
-                // TODO temporary comment
-//                double max_score = 0.f;
-//                int selected_camera = -1;
-//                bool full_overlap = true;
                 const int n_views = texture_views.size();
 
                 std::vector<__inner__::CameraScore> camera_scores;
@@ -293,12 +289,6 @@ namespace MvsTexturing {
 
                         double camera_score = avg_cosine * overlap_rate;
                         camera_scores.push_back(__inner__::CameraScore(camera_score, camera_id, is_full_overlap));
-                        // TODO temporary comment
-//                        if (camera_score > max_score) {
-//                            max_score = camera_score;
-//                            selected_camera = camera_id;
-//                            full_overlap = is_full_overlap;
-//                        }
                     }
                 }
 
@@ -319,7 +309,7 @@ namespace MvsTexturing {
                             if (graph.get_label(face_id) == 0) {
                                 // haven't set label
                                 const std::set<std::size_t> &vis = faces_visibility[face_id];
-                                if (vis.find(select_camera_id) != vis.end()) {
+                                if (vis.find(select_camera_id - 1) != vis.end()) {
                                     graph.set_label(face_id, select_camera_id);
                                 } else {
                                     is_plane_overlap = false;
@@ -331,28 +321,7 @@ namespace MvsTexturing {
                         }
 
                         rest_cameras--;
-                        std::make_heap(camera_scores.begin(), camera_scores.begin() + rest_cameras,
-                                       __inner__::func_camera_score_cmp);
                     }
-
-                    /*
-                    if (selected_camera != -1) {
-                        if (full_overlap) {
-                            for (std::size_t i = 0; i < group.m_indices.size(); i++) {
-                                graph.set_label(group.m_indices[i], selected_camera);
-                            }
-                        } else {
-                            for (std::size_t i = 0; i < group.m_indices.size(); i++) {
-                                std::size_t face_id = group.m_indices[i];
-
-                                const std::set<std::size_t> &visibility = faces_visibility[face_id];
-                                if (visibility.find(selected_camera - 1) != visibility.end()) {
-                                    graph.set_label(face_id, selected_camera);
-                                }
-                            }
-                        }
-                    }
-                     */
                 }
             }
 
