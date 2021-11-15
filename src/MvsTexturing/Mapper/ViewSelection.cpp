@@ -245,13 +245,9 @@ namespace MvsTexturing {
                 return face_to_view_vec.dot(face_normal);
             }
 
-            void camera_project_to_plane(const MeshConstPtr mesh,
-                                         const mve::MeshInfo &mesh_info,
-                                         const PlaneGroup &group,
-                                         const FacesVisibility &f_visibility,
-                                         const int select_camera_id,
-                                         LabelGraph &graph,
-                                         bool &is_last_camera) {
+            void camera_project_to_plane(const MeshConstPtr mesh, const mve::MeshInfo &mesh_info,
+                                         const PlaneGroup &group, const FacesVisibility &f_visibility,
+                                         const int select_camera_id, LabelGraph &graph, bool &is_last_camera) {
                 is_last_camera = true;
                 std::set<std::size_t> applied_face;
                 for (std::size_t i = 0; i < group.m_indices.size(); i++) {
