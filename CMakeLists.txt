@@ -3,7 +3,10 @@ project(TexturingPipeline)
 
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake")
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -fPIC")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pthread -fPIC")
+
+set(BUILD_SHARED_LIBS ON)
 
 # Find OpenMP
 find_package(OpenMP REQUIRED)

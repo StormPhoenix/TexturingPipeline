@@ -17,6 +17,4 @@ target_include_directories(${PROJECT_NAME} PRIVATE
         ${RAYINT_INCLUDE_DIR})
 target_link_libraries(${PROJECT_NAME}
         MvsTexturing-Library
-        MeshPolyRefinement-Library
-        Boost::program_options
-        mve mve_util)
+        Boost::program_options)

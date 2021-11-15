@@ -19,7 +19,7 @@ set(TBB_LIBRARY "/usr/local/opt/tbb@2020/lib")
 set(TBB_LIBRARIES "/usr/local/opt/tbb@2020/lib/libtbb.dylib")
 
 set(MvsTexturingLibrary MvsTexturing-Library)
-add_library(${MvsTexturingLibrary} STATIC ${SOURCES})
+add_library(${MvsTexturingLibrary} ${SOURCES})
 set_property(TARGET ${MvsTexturingLibrary} PROPERTY INTERPROCEDURAL_OPTIMIZATION True)
 target_include_directories(${MvsTexturingLibrary} PRIVATE
         ${RAYINT_INCLUDE_DIR}
@@ -34,6 +34,7 @@ target_compile_options(${MvsTexturingLibrary} PRIVATE
 target_link_directories(${MvsTexturingLibrary} PRIVATE
         ${TBB_LIBRARY})
 target_link_libraries(${MvsTexturingLibrary}
-        mve mve_util ${JPEG_LIBRARIES} ${PNG_LIBRARIES} ${TIFF_LIBRARIES}
-        ${TBB_LIBRARIES}
+        mve mve_util ${JPEG_LIBRARIES} ${PNG_LIBRARIES}
+        ${TIFF_LIBRARIES} ${TBB_LIBRARIES}
+        MeshPolyRefinement-Library
         OpenMP::OpenMP_CXX)
