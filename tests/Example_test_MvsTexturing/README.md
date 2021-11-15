@@ -7,7 +7,7 @@
     - 速度：同样测试用例，Mapmap-Cpu 速度是 LBP 的十倍 <font color="red">?(检查下 mapmap 和 LBP 的截止条件)</font>
     - 效果：
         - LBP 效果比 Mapmap-Cpu 更好。Mapmap 平坦路贴的面片不连续，看起来一块一块的纹理都不一致
-        - 使用了 LBP 的效果比 openMVS 要好。贴的纹理是大块大块的，不再有模糊。<font color="red">?(检查下 data term 的计算)</font>
+        - 使用了 LBP 的效果比 openMVS 要好。贴的纹理是大块大块的，不再有模糊。<font color="red">?(检查下 data term 的计算，查出原因很有必要，效果提升需要一个解释)</font>
         
 - 关于投影方法的思考
     - 本质：投影方法是希望大块三角面片采用同样一张图像去贴。
@@ -31,7 +31,9 @@
         过远导致视角倾斜图像失真。
         
     - 人为投影方法无法消除 "不存在物体" 的边缘
-        - "不存在物体" 是通过 photo-metric 消除的，但 photo-metric 无法细化到检测 "不存在物体" 的边缘 
+        - "不存在物体" 是通过 photo-metric 消除的，但 photo-metric 无法细化到检测 "不存在物体" 的边缘
+            - 通过比较 face - image 的 gauss value 方式，可以消除一部分边缘错拼的问题，但依然有一些位置无法消除。我的解释是：photo-metric 指标
+            是 face - image 的 mean-color，采用均值作为特征过滤掉了图像上很多梯度（方差）信息。
     
 ### Test Cases
 - aym(normal case)

@@ -245,12 +245,15 @@ namespace MvsTexturing {
                 return face_to_view_vec.dot(face_normal);
             }
 
-            void camera_project_to_plane(const PlaneGroup &group,
+            void camera_project_to_plane(const MeshConstPtr mesh,
+                                         const mve::MeshInfo &mesh_info,
+                                         const PlaneGroup &group,
                                          const FacesVisibility &f_visibility,
                                          const int select_camera_id,
                                          LabelGraph &graph,
                                          bool &is_last_camera) {
                 is_last_camera = true;
+                std::set<std::size_t> applied_face;
                 for (std::size_t i = 0; i < group.m_indices.size(); i++) {
                     std::size_t face_id = group.m_indices[i];
                     if (graph.get_label(face_id) == 0) {
@@ -258,6 +261,7 @@ namespace MvsTexturing {
                         const std::set<__inner__::FaceQuality> &vis = f_visibility[face_id];
                         if (vis.find(__inner__::FaceQuality(select_camera_id - 1)) != vis.end()) {
                             graph.set_label(face_id, select_camera_id);
+                            applied_face.insert(face_id);
                         } else {
                             is_last_camera = false;
                         }
@@ -267,28 +271,47 @@ namespace MvsTexturing {
                     }
                 }
 
-                // check boundary texture
-                for (std::size_t i = 0; i < group.m_indices.size(); i++) {
-                    std::size_t face_id = group.m_indices[i];
-                    if (graph.get_label(face_id) != select_camera_id) {
-                        continue;
+                // min-cuts
+                for (auto it = applied_face.begin(); it != applied_face.end(); it++) {
+                    std::size_t face_id = (*it);
+                    __inner__::FaceQuality cur_quality = __inner__::FaceQuality(select_camera_id - 1);
+
+                    // find adjacent faces
+                    std::vector<std::size_t> adj_face_ids;
+                    {
+                        std::set<std::size_t> adj_faces_set;
+                        for (int i = 0; i < 3; i++) {
+                            std::size_t vid = mesh->get_faces()[face_id * 3 + i];
+                            const mve::MeshInfo::AdjacentFaces &adj_faces = mesh_info[vid].faces;
+                            for (int j = 0; j < adj_faces.size(); j++) {
+                                adj_faces_set.insert(adj_faces[j]);
+                            }
+                        }
+
+                        for (auto it = adj_faces_set.begin(); it != adj_faces_set.end(); it++) {
+                            adj_face_ids.push_back((*it));
+                        }
                     }
 
-                    __inner__::FaceQuality cur_quality = __inner__::FaceQuality(select_camera_id - 1);
-                    const std::vector<std::size_t> &adj_face_ids = graph.get_adj_nodes(face_id);
                     for (std::size_t adj_face_id : adj_face_ids) {
+                        if (adj_face_id == face_id) {
+                            continue;
+                        }
                         std::size_t adj_label = graph.get_label(adj_face_id);
                         if (adj_label != 0 && adj_label != select_camera_id) {
                             const std::set<__inner__::FaceQuality> &adj_vis = f_visibility[adj_face_id];
                             if (adj_vis.find(cur_quality) != adj_vis.end()) {
                                 // can expand
-                                __inner__::FaceQuality adj_quality = __inner__::FaceQuality(adj_label - 1);
-                                double adj_gauss_value = adj_vis.find(adj_quality)->gauss_value;
-                                double cur_gauss_value = adj_vis.find(cur_quality)->gauss_value;
+                                // TODO expand by default
+                                graph.set_label(adj_face_id, select_camera_id);
 
-                                if (adj_gauss_value < cur_gauss_value) {
-                                    graph.set_label(adj_face_id, select_camera_id);
-                                }
+//                                __inner__::FaceQuality adj_quality = __inner__::FaceQuality(adj_label - 1);
+//                                double adj_gauss_value = adj_vis.find(adj_quality)->gauss_value;
+//                                double cur_gauss_value = adj_vis.find(cur_quality)->gauss_value;
+
+//                                if (adj_gauss_value < cur_gauss_value) {
+//                                    graph.set_label(adj_face_id, select_camera_id);
+//                                }
                             } else {
                                 // can't expand
                                 // TODO
@@ -298,7 +321,7 @@ namespace MvsTexturing {
                 }
             }
 
-            void project_to_plane(const MeshConstPtr mesh, const PlaneGroup &group,
+            void project_to_plane(const MeshConstPtr mesh, const mve::MeshInfo &mesh_info, const PlaneGroup &group,
                                   const TextureViewList &texture_views, const FacesVisibility &faces_visibility,
                                   LabelGraph &graph) {
                 const int n_views = texture_views.size();
@@ -340,13 +363,15 @@ namespace MvsTexturing {
                         std::pop_heap(camera_scores.begin(), camera_scores.begin() + rest_cameras,
                                       __inner__::func_camera_score_cmp);
 
-                        camera_project_to_plane(group, faces_visibility, select_camera_id, graph, is_plane_overlap);
+                        camera_project_to_plane(mesh, mesh_info, group, faces_visibility,
+                                                select_camera_id, graph, is_plane_overlap);
                         rest_cameras--;
                     }
                 }
             }
 
-            void solve_projection_problem(MeshConstPtr mesh, const BVHTree &bvh_tree, Base::LabelGraph &graph,
+            void solve_projection_problem(MeshConstPtr mesh, const mve::MeshInfo &mesh_info,
+                                          const BVHTree &bvh_tree, Base::LabelGraph &graph,
                                           TextureViewList &texture_views, const Parameter &param) {
                 // visibility detection
                 std::vector<std::set<__inner__::FaceQuality>> face_visibilities(mesh->get_faces().size() / 3);
@@ -380,7 +405,7 @@ namespace MvsTexturing {
 
                 for (std::size_t group_id = 0; group_id < tri_mesh.m_plane_groups.size(); group_id++) {
                     PlaneGroup &group = tri_mesh.m_plane_groups[group_id];
-                    project_to_plane(mesh, group, texture_views, face_visibilities, graph);
+                    project_to_plane(mesh, mesh_info, group, texture_views, face_visibilities, graph);
                 }
             }
         }

@@ -19,6 +19,7 @@ namespace MvsTexturing {
     namespace ViewSelection {
         namespace Projection {
             void solve_projection_problem(mve::TriangleMesh::ConstPtr mesh,
+                                          const mve::MeshInfo &mesh_info,
                                           const acc::BVHTree<unsigned int, math::Vec3f> &bvh_tree,
                                           Base::LabelGraph &graph, std::vector<Base::TextureView> &texture_views,
                                           const Parameter &param);

@@ -92,7 +92,7 @@ int main(int argc, char **argv) {
             } else if (param.method_type == "projection") {
                 std::cout << "\tRunning Projection-algorithm ... " << std::endl;
                 timer.reset();
-                VS::Projection::solve_projection_problem(input_mesh, bvh_tree, graph, texture_views, param);
+                VS::Projection::solve_projection_problem(input_mesh, mesh_info, bvh_tree, graph, texture_views, param);
                 std::cout << "\n\tProjection method done. (Took: " << timer.get_elapsed_sec() << " s)\n";
             } else {
                 std::cout << "\tView selection method not supported: " << param.method_type << std::endl;
