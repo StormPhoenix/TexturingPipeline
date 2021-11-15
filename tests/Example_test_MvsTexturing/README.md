@@ -3,11 +3,15 @@
 - 待解决问题
     - 引入 GCOptimizatin
     
+- 稀疏网格纹理映射
+    - MvsTexturing、MakeMeshDense 和 TextureRemeshing 已经写好，稀疏网格纹理映射就靠这三个库串起来即可。
+    - TextureRemeshing 还存在一些小问题，就是对纹理采样得到的图像变得模糊、有锯齿，还没想出改进办法。
+    
 - Mapmap-Cpu 与 LBP 对比结果
     - 速度：同样测试用例，Mapmap-Cpu 速度是 LBP 的十倍 <font color="red">?(检查下 mapmap 和 LBP 的截止条件)</font>
     - 效果：
         - LBP 效果比 Mapmap-Cpu 更好。Mapmap 平坦路贴的面片不连续，看起来一块一块的纹理都不一致
-        - 使用了 LBP 的效果比 openMVS 要好。贴的纹理是大块大块的，不再有模糊。<font color="red">?(检查下 data term 的计算，查出原因很有必要，效果提升需要一个解释)</font>
+        - 使用了 LBP 的效果比 openMVS 要好。贴的纹理是大块大块的，不再有模糊。<font color="red">?(检查下 data term 的计算，查出原因很有必要，效果提升需要一个解释 !!!)</font>
         
 - 关于投影方法的思考
     - 本质：投影方法是希望大块三角面片采用同样一张图像去贴。
@@ -25,7 +29,7 @@
         - 给定平面让相机投影，原本的做法是考虑相机能够覆盖的面数、每个面上相机倾斜角来决定用那种相机覆盖。
         但现在看来应该考虑使用 projection - info 的信息（只考虑 cos<face_normal, camera_ray> 和 face overlap rate 是不够的，这忽略了图像信息）
         
-        - 每次只选一张相机用于 plane，未覆盖到的区域就不管了，这显然不合适。<font color="red">这个容易解决。选取相机往上贴之前需要对每个相机打分，按照得分排行依次覆盖剩余未覆盖平面</font>
+        - 每次只选一张相机用于 plane，未覆盖到的区域就不管了，这显然不合适。<font color="red">这个容易解决。选取相机往上贴之前需要对每个相机打分，按照得分排行依次覆盖剩余未覆盖平面（已解决）</font>
         
         - 对于一个平面，每个相机只有两种状态：投射区域要么全贴，要么不贴（不考虑 photo-metric 判断的情况）。这和实际情况不符：存在一个大平面，投射的部分区域由于和相机
         过远导致视角倾斜图像失真。
@@ -33,7 +37,8 @@
     - 人为投影方法无法消除 "不存在物体" 的边缘
         - "不存在物体" 是通过 photo-metric 消除的，但 photo-metric 无法细化到检测 "不存在物体" 的边缘
             - 通过比较 face - image 的 gauss value 方式，可以消除一部分边缘错拼的问题，但依然有一些位置无法消除。我的解释是：photo-metric 指标
-            是 face - image 的 mean-color，采用均值作为特征过滤掉了图像上很多梯度（方差）信息。
+            是 face - image 的 mean-color，采用均值作为特征过滤掉了图像上很多梯度（方差）信息。<font>（如何在特征值方面入手？）</font>
+            - 无脑对冲突区域进行扩张。在扩张同时还会检查 face visibility 和 photo metric 来剔除 outlier <font>（这个办法效果还是很好的。但扩张又导致了一些没必要扩张的区域也扩张了，所以后续还要考虑对扩张的"种子"位置做筛选）</font>
     
 ### Test Cases
 - aym(normal case)
