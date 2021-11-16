@@ -13,6 +13,64 @@ namespace MvsTexturing {
     namespace Utils {
         typedef MeshPolyRefinement::Base::TriMesh TriMesh;
 
+        MeshPtr eigenMesh_to_mveMesh(const Base::AttributeMatrix &V,
+                                     const Base::IndexMatrix &F,
+                                     const Base::AttributeMatrix &FC) {
+            if (V.rows() <= 0 || F.rows() <= 0) {
+                return nullptr;
+            }
+
+            if (FC.rows() > 0 && FC.rows() != F.rows()) {
+                return nullptr;
+            }
+
+            mve::TriangleMesh::Ptr ret = mve::TriangleMesh::create();
+
+            mve::TriangleMesh::VertexList &vertices_list = ret->get_vertices();
+            mve::TriangleMesh::FaceList &faces_list = ret->get_faces();
+            mve::TriangleMesh::ColorList &face_colors_list = ret->get_face_colors();
+
+            // copy vertices
+            Eigen::Index n_vertices = V.rows();
+            vertices_list.resize(n_vertices);
+            for (int i = 0; i < n_vertices; i++) {
+                math::Vec3f &v = vertices_list[i];
+                v[0] = V(i, 0);
+                v[1] = V(i, 1);
+                v[2] = V(i, 2);
+            }
+
+            // copy faces
+            Eigen::Index n_faces = F.rows();
+            faces_list.resize(3 * n_faces);
+            for (int i = 0; i < n_faces * 3; i += 3) {
+                faces_list[i + 0] = F(i / 3, 0);
+                faces_list[i + 1] = F(i / 3, 1);
+                faces_list[i + 2] = F(i / 3, 2);
+            }
+
+            // copy face colors
+            Eigen::Index n_face_colors = FC.rows();
+            face_colors_list.resize(n_face_colors);
+            for (int i = 0; i < n_face_colors; i++) {
+                math::Vec4f &f_color = face_colors_list[i];
+                for (int c = 0; c < FC.cols(); c++) {
+                    f_color[c] = FC(i, c);
+                }
+            }
+
+            mve::MeshInfo mesh_info(ret);
+            MvsTexturing::Builder::MVE::prepare_mesh(&mesh_info, ret);
+
+            return ret;
+        }
+
+        MeshPtr eigenMesh_to_mveMesh(const Base::AttributeMatrix &V,
+                                     const Base::IndexMatrix &F) {
+            Base::AttributeMatrix FC;
+            return eigenMesh_to_mveMesh(V, F, FC);
+        }
+
         MeshPtr triMesh_to_mveMesh(TriMesh &tri_mesh) {
             mve::TriangleMesh::Ptr ans = mve::TriangleMesh::create();
 

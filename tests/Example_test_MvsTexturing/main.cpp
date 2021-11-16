@@ -249,10 +249,8 @@ void preprocessing(int argc, char **argv) {
     std::cout << argv[0] << " (built on " << __DATE__ << ", " << __TIME__ << ")" << std::endl;
 }
 
-void run_mrf_method(const MvsTexturing::MeshPtr mesh,
-                    const BVHTree &bvh_tree,
-                    const MvsTexturing::Parameter &param,
-                    MvsTexturing::Base::LabelGraph &graph,
+void run_mrf_method(const MvsTexturing::MeshPtr mesh, const BVHTree &bvh_tree,
+                    const MvsTexturing::Parameter &param, MvsTexturing::Base::LabelGraph &graph,
                     std::vector<MvsTexturing::Base::TextureView> &texture_views) {
     using namespace MvsTexturing;
     namespace VS = ViewSelection;

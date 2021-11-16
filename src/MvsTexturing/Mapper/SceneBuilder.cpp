@@ -282,8 +282,20 @@ namespace MvsTexturing {
 
             std::size_t remove_redundant_faces(const mve::MeshInfo &mesh_info, MeshPtr mesh) {
                 mve::TriangleMesh::FaceList &faces = mesh->get_faces();
+                mve::TriangleMesh::ColorList &f_colors = mesh->get_face_colors();
+
+                bool manage_face_color = true;
+                if (f_colors.size() <= 0 || (f_colors.size() != (faces.size() / 3))) {
+                    manage_face_color = false;
+                }
+
                 mve::TriangleMesh::FaceList new_faces;
                 new_faces.reserve(faces.size());
+
+                mve::TriangleMesh::ColorList new_colors;
+                if (manage_face_color) {
+                    new_colors.reserve(f_colors.size());
+                }
 
                 std::size_t num_redundant = 0;
                 for (std::size_t i = 0; i < faces.size(); i += 3) {
@@ -315,10 +327,16 @@ namespace MvsTexturing {
                         ++num_redundant;
                     } else {
                         new_faces.insert(new_faces.end(), faces.cbegin() + i, faces.cbegin() + i + 3);
+                        if (manage_face_color) {
+                            new_colors.insert(new_colors.end(), f_colors[face_id]);
+                        }
                     }
                 }
 
                 faces.swap(new_faces);
+                if (manage_face_color) {
+                    f_colors.swap(new_colors);
+                }
 
                 return num_redundant;
             }

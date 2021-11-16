@@ -98,9 +98,7 @@ MVE_NAMESPACE_BEGIN
 
 /* ---------------------------------------------------------------- */
 
-/* Converts 'num' float values in [0,1] to unsigned char in [0,255]. */
-        void
-        ply_color_convert(float const *src, unsigned char *dest, int num = 3) {
+        void ply_color_convert(float const *src, unsigned char *dest, int num = 3) {
             // Do not check color range
             for (int c = 0; c < num; ++c) {
                 float color = src[c];

@@ -31,17 +31,23 @@ namespace MvsTexturing {
         bool load_mesh_from_obj(const std::string &filename, AttributeMatrix &V, AttributeMatrix &N,
                                 AttributeMatrix &T, IndexMatrix &F, IndexMatrix &FN, IndexMatrix &FT,
                                 std::vector<std::string> &face_materials,
-                                 std::map<std::string, std::string> &material_map);
+                                std::map<std::string, std::string> &material_map);
 
         bool load_mesh_from_ply(const std::string &filename, AttributeMatrix &V, IndexMatrix &F);
 
-        bool save_mesh(const std::string &file_name, const Eigen::MatrixXd &V, const Eigen::MatrixXi &F);
+        bool save_ply_mesh(const std::string &file_name, const Eigen::MatrixXd &V, const Eigen::MatrixXi &F);
+
+        bool save_ply_mesh(const std::string &file_name, const Eigen::MatrixXd &V, const Eigen::MatrixXi &F,
+                           const Eigen::MatrixXd &FC);
 
         namespace MVE {
             mve::TriangleMesh::Ptr load_ply_mesh(const std::string &filename);
 
             void save_obj_mesh(const std::string &filename, mve::TriangleMesh::ConstPtr mesh,
                                const std::vector<Base::TextureAtlas::Ptr> &texture_atlases);
+
+            void save_ply_mesh(const std::string &filename, mve::TriangleMesh::ConstPtr mesh,
+                               bool binary_format = true);
         }
     }
 }

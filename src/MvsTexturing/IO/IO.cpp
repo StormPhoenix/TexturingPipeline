@@ -15,6 +15,7 @@
 
 #include "IO/ObjModel.h"
 #include "Base/TextureAtlas.h"
+#include "Utils/MeshAdapter.h"
 
 #define TINYPLY_IMPLEMENTATION
 
@@ -465,14 +466,22 @@ namespace MvsTexturing {
             return true;
         }
 
-        bool save_mesh(const std::string &file_name, const Eigen::MatrixXd &V, const Eigen::MatrixXi &F) {
+        bool save_ply_mesh(const std::string &file_name, const Eigen::MatrixXd &V, const Eigen::MatrixXi &F) {
             return igl::write_triangle_mesh(file_name, V, F);
         }
 
-        namespace MVE {
-            using namespace mve;
-            using namespace mve::geom;
+        bool save_ply_mesh(const std::string &file_name, const Eigen::MatrixXd &V,
+                           const Eigen::MatrixXi &F, const Eigen::MatrixXd &FC) {
+            MeshPtr mesh_ptr = Utils::eigenMesh_to_mveMesh(V, F, FC);
+            if (mesh_ptr != nullptr) {
+                MVE::save_ply_mesh(file_name, mesh_ptr, false);
+                return true;
+            } else {
+                return false;
+            }
+        }
 
+        namespace MVE {
             mve::TriangleMesh::Ptr load_ply_mesh(const std::string &in_mesh) {
                 return mve::geom::load_ply_mesh(in_mesh);
             }
@@ -549,6 +558,13 @@ namespace MvsTexturing {
                 }
 
                 Obj::ObjModel::save(obj_model, prefix);
+            }
+
+            void save_ply_mesh(const std::string &filename, mve::TriangleMesh::ConstPtr mesh, bool binary_format) {
+                mve::geom::SavePLYOptions options;
+                options.format_binary = binary_format;
+                options.write_face_colors = true;
+                mve::geom::save_ply_mesh(mesh, filename, options);
             }
         }
     }
