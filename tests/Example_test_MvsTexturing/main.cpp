@@ -13,6 +13,8 @@
 #include <Parameter.h>
 #include <Utils/Utils.h>
 
+#include <MeshSubdivision.h>
+
 typedef acc::BVHTree<unsigned int, math::Vec3f> BVHTree;
 
 void parse_args(int argc, char **argv, MvsTexturing::Parameter &param);
@@ -34,6 +36,7 @@ int main(int argc, char **argv) {
         std::exit(EXIT_FAILURE);
     }
 
+    util::WallTimer whole_timer;
     // Read mesh files
     std::cout << "\n### MvsTexturing------Load mesh " << std::endl;
     using namespace MvsTexturing;
@@ -175,7 +178,8 @@ int main(int argc, char **argv) {
         MvsTexturing::IO::MVE::save_obj_mesh(param.output_prefix, input_mesh, texture_atlases);
         std::cout << " done. (Took: " << timer.get_elapsed_sec() << "s)" << std::endl;
     }
-    std::cout << "\nMvsTexturing done. " << std::endl;
+
+    std::cout << "\nMvsTexturing done. (Took: " << whole_timer.get_elapsed_sec() << " s)" << std::endl;
     return 0;
 }
 
@@ -211,6 +215,8 @@ void parse_args(int argc, char **argv, MvsTexturing::Parameter &param) {
             ("keep_unseen_faces", bpo::value<bool>()->default_value(false), "Keep unseen faces [false]")
             ("write_intermediate_results", bpo::value<bool>()->default_value(false),
              "write intermediate results [false]")
+            ("sparse_model", bpo::value<bool>()->default_value(false),
+             "whether the mesh is sparse {true, false} [false]")
             ("tone_mapping", bpo::value<std::string>()->default_value("none"),
              "Tone mapping method: {none, gamma} [none]")
             ("mrf_call_lib", bpo::value<std::string>()->default_value("mapmap"),
@@ -242,6 +248,8 @@ void parse_args(int argc, char **argv, MvsTexturing::Parameter &param) {
     param.angle_threshold = 30.0;
     param.ratio_threshold = 20.0;
     param.min_plane_size = 5;
+
+    param.sparse_model = vm["sparse_model"].as<bool>();
 }
 
 void preprocessing(int argc, char **argv) {

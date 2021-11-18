@@ -18,6 +18,7 @@ namespace TextureRemeshing {
         typedef double Scalar;
         typedef Eigen::Matrix<Scalar, -1, -1, Eigen::RowMajor> AttributeMatrix;
         typedef Eigen::Matrix<int, -1, -1, Eigen::RowMajor> IndexMatrix;
+        using TriMesh = MeshPolyRefinement::Base::TriMesh;
 
         mve::TriangleMesh::Ptr triMesh_to_mveMesh(MeshPolyRefinement::Base::TriMesh &tri_mesh) {
             mve::TriangleMesh::Ptr ans = mve::TriangleMesh::create();
@@ -49,7 +50,7 @@ namespace TextureRemeshing {
             return ans;
         }
 
-        bool remeshing_from_plane_groups(const MeshPolyRefinement::Base::TriMesh &mesh,
+        bool remeshing_from_plane_groups(const TriMesh &mesh,
                                          const AttributeMatrix &global_texcoords,
                                          const IndexMatrix &global_texcoord_ids,
                                          const std::vector<std::string> &face_materials,
@@ -318,7 +319,7 @@ namespace TextureRemeshing {
             return true;
         }
 
-        bool remeshing_from_plane_groups(const MeshPolyRefinement::Base::TriMesh &mesh,
+        bool remeshing_from_plane_groups(const TriMesh &mesh,
                                          const AttributeMatrix &global_texcoords,
                                          const IndexMatrix &global_texcoord_ids,
                                          std::vector<MvsTexturing::Base::TexturePatch::Ptr> *texture_patches,

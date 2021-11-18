@@ -47,6 +47,8 @@ namespace MvsTexturing {
         double angle_threshold;
         double ratio_threshold;
         double min_plane_size;
+
+        bool sparse_model = false;
     };
 }
 
