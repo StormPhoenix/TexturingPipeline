@@ -51,7 +51,7 @@ namespace MeshSimplification {
                                const FaceGroups &sparse_mesh_face_groups,
                                TexturePatchArray *sparse_texture_patches,
                                std::size_t padding_pixels = 10,
-                               const std::size_t plane_density = 300)
+                               const std::size_t plane_density = 300);
 }
 
 #endif //TEXTURINGPIPELINE_MESHSIMPLIFICATION_H

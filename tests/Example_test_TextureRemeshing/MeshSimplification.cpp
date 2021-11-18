@@ -43,8 +43,7 @@ namespace MeshSimplification {
                                const FacesSubdivisions &faces_subdivision,
                                const FaceGroups &sparse_mesh_face_groups,
                                TexturePatchArray *sparse_texture_patches,
-                               std::size_t padding_pixels = 10,
-                               const std::size_t plane_density = 300) {
+                               std::size_t padding_pixels, const std::size_t plane_density) {
         padding_pixels = std::max(padding_pixels, std::size_t(2));
 
         if (dense_mesh.m_faces.rows() != dense_mesh.m_face_texture_coord_ids.rows()) {
