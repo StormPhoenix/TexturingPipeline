@@ -45,6 +45,10 @@ namespace MeshSimplification {
 
     typedef mve::ByteImage::Ptr ImagePtr;
 
+    using FloatImageConstPtr = mve::FloatImage::ConstPtr;
+    using TexturePatch = MvsTexturing::Base::TexturePatch;
+
+
     bool simplify_mesh_texture(const Mesh &sparse_mesh, const Mesh &dense_mesh,
                                const std::vector<ImagePtr> &dense_mesh_materials,
                                const FacesSubdivisions &faces_subdivision,
@@ -52,6 +56,21 @@ namespace MeshSimplification {
                                TexturePatchArray *sparse_texture_patches,
                                std::size_t padding_pixels = 10,
                                const std::size_t plane_density = 300);
+
+
+    bool simplify_mesh_texture(const AttributeMatrix &sparse_mesh_vertices,
+                               const IndexMatrix &sparse_mesh_faces,
+                               const std::vector<FaceGroup> &sparse_planar_groups,
+
+                               const AttributeMatrix &dense_mesh_vertices,
+                               const IndexMatrix &dense_mesh_faces,
+                               const std::vector<math::Vec2f> &dense_mesh_face_texture_coords,
+                               const std::vector<FloatImageConstPtr> &dense_mesh_face_materials,
+
+                               const FacesSubdivisions &faces_subdivision,
+                               std::vector<TexturePatch::Ptr> *ret_sparse_mesh_texture_patches,
+                               std::size_t padding_pixels = 10,
+                               std::size_t plane_density = 300);
 }
 
 #endif //TEXTURINGPIPELINE_MESHSIMPLIFICATION_H

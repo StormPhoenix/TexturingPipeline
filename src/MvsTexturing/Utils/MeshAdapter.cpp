@@ -13,6 +13,30 @@ namespace MvsTexturing {
     namespace Utils {
         typedef MeshPolyRefinement::Base::TriMesh TriMesh;
 
+        bool eigenMesh_to_TriMesh(const Base::AttributeMatrix &mesh_vertices,
+                                  const Base::IndexMatrix &mesh_faces,
+                                  TriMesh &tri_mesh) {
+            if (mesh_vertices.rows() <= 0 || mesh_faces.rows() <= 0) {
+                return false;
+            }
+
+            std::vector<double> tmp_vertices(mesh_vertices.rows() * 3);
+            for (int i = 0; i < mesh_vertices.rows(); i++) {
+                for (int j = 0; j < 3; j++) {
+                    tmp_vertices[i * 3 + j] = mesh_vertices(i, j);
+                }
+            }
+
+            std::vector<std::size_t> tmp_faces(mesh_faces.rows() * 3);
+            for (int i = 0; i < mesh_faces.rows(); i++) {
+                for (int j = 0; j < 3; j++) {
+                    tmp_faces[i * 3 + j] = mesh_faces(i, j);
+                }
+            }
+            return MeshPolyRefinement::IO::read_mesh_from_memory(tmp_vertices, tmp_faces, tri_mesh);
+
+        }
+
         MeshPtr eigenMesh_to_mveMesh(const Base::AttributeMatrix &V,
                                      const Base::IndexMatrix &F,
                                      const Base::AttributeMatrix &FC) {

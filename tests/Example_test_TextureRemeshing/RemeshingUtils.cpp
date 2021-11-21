@@ -59,7 +59,6 @@ namespace TextureRemeshing {
                                          std::size_t padding_pixels = 10,
                                          const std::size_t plane_density = 300) {
             bool using_materials = (!face_materials.empty()) && (!material_image_map.empty());
-
             padding_pixels = std::max(padding_pixels, std::size_t(2));
             struct TexCoord {
                 Scalar u, v;

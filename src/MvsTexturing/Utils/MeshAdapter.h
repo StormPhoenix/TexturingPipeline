@@ -14,6 +14,10 @@ namespace MvsTexturing {
     namespace Utils {
         typedef MeshPolyRefinement::Base::TriMesh TriMesh;
 
+        bool eigenMesh_to_TriMesh(const Base::AttributeMatrix &mesh_vertices,
+                                  const Base::IndexMatrix &mesh_faces,
+                                  TriMesh &tri_mesh);
+
         MeshPtr eigenMesh_to_mveMesh(const Base::AttributeMatrix &V,
                                      const Base::IndexMatrix &F,
                                      const Base::AttributeMatrix &FC);

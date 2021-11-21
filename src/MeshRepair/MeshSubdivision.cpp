@@ -233,7 +233,7 @@ namespace MeshSubdivision {
     bool stop_criteria(std::vector<__inner__::Face> &faces, std::vector<__inner__::EdgeLen> &edge_heap) {
         // TODO 加密程度
 //        const double Length_Threshold = 0.09;
-        const double Length_Threshold = 0.5;
+        const double Length_Threshold = 0.02;
         if (edge_heap[0].len < Length_Threshold) {
             return true;
         }

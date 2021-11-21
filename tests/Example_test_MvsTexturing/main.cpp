@@ -5,6 +5,8 @@
 #include <iostream>
 #include <boost/program_options.hpp>
 
+#include <mve/image_tools.h>
+
 #include <MvsTexturing.h>
 #include <Base/SparseTable.h>
 #include <Mapper/AtlasMapper.h>
@@ -12,8 +14,13 @@
 #include <Mapper/ViewSelection.h>
 #include <Parameter.h>
 #include <Utils/Utils.h>
+#include <Utils/MeshAdapter.h>
+
+#include <PlaneEstimation/RegionExpand.h>
+#include <PlaneEstimation/RegionGrowing.h>
 
 #include <MeshSubdivision.h>
+#include <MeshSimplification.h>
 
 typedef acc::BVHTree<unsigned int, math::Vec3f> BVHTree;
 
@@ -24,6 +31,68 @@ void preprocessing(int argc, char **argv);
 void run_mrf_method(const MvsTexturing::MeshPtr mesh, const BVHTree &bvh_tree,
                     const MvsTexturing::Parameter &param, MvsTexturing::Base::LabelGraph &graph,
                     std::vector<MvsTexturing::Base::TextureView> &texture_views);
+
+using MeshPtr = MvsTexturing::MeshPtr;
+using MeshInfo = MvsTexturing::MeshInfo;
+using LabelGraph = MvsTexturing::Base::LabelGraph;
+using TextureView = MvsTexturing::Base::TextureView;
+using TextureViews = std::vector<TextureView>;
+using TexturePatch = MvsTexturing::Base::TexturePatch;
+using TexturePatches = std::vector<MvsTexturing::Base::TexturePatch::Ptr>;
+using Parameter = MvsTexturing::Parameter;
+using ByteImagePtr = mve::ByteImage::Ptr;
+using FloatImagePtr = mve::FloatImage::Ptr;
+using FloatImageConstPtr = mve::FloatImage::ConstPtr;
+
+namespace __inner__ {
+    using namespace MvsTexturing;
+
+    class Mesh {
+    public:
+        Mesh() {}
+
+    public:
+        Base::AttributeMatrix m_vertices;
+        Base::IndexMatrix m_faces;
+
+        Base::AttributeMatrix m_face_colors;
+
+    };
+
+    class Color {
+    public:
+        std::size_t m_r, m_g, m_b;
+
+        Color() : m_r(0), m_g(0), m_b(0) {}
+
+        Color(std::size_t r, std::size_t g, std::size_t b) :
+                m_r(r), m_g(g), m_b(b) {}
+
+        bool operator<(const Color &other) const {
+            if (m_r < other.m_r) {
+                return true;
+            } else if (m_r == other.m_r) {
+                if (m_g < other.m_g) {
+                    return true;
+                } else if (m_g == other.m_g) {
+                    return m_b < other.m_b;
+                } else {
+                    return false;
+                }
+            } else {
+                return false;
+            }
+        }
+    };
+}
+
+bool texturing_from_dense_to_sparse_model(const __inner__::Mesh &sparse_mesh, const __inner__::Mesh &dense_mesh,
+                                          const TexturePatches &texture_patches, const Parameter &param,
+                                          std::vector<TexturePatch::Ptr> *final_patches);
+
+bool map_textures(MeshPtr input_mesh, MeshInfo &mesh_info,
+                  TextureViews &texture_views, const Parameter &param,
+                  const __inner__::Mesh &origin_mesh, const __inner__::Mesh &dense_mesh);
 
 int main(int argc, char **argv) {
     preprocessing(argc, argv);
@@ -36,17 +105,42 @@ int main(int argc, char **argv) {
         std::exit(EXIT_FAILURE);
     }
 
+    using namespace MvsTexturing;
+
     util::WallTimer whole_timer;
+
     // Read mesh files
     std::cout << "\n### MvsTexturing------Load mesh " << std::endl;
-    using namespace MvsTexturing;
+    __inner__::Mesh origin_mesh;
+    __inner__::Mesh dense_mesh;
     MeshPtr input_mesh;
-    try {
-        input_mesh = IO::MVE::load_ply_mesh(param.input_mesh);
-        assert(input_mesh->get_faces().size() % 3 == 0);
-    } catch (std::exception &e) {
-        std::cerr << "\tCould not load mesh: " << e.what() << std::endl;
-        std::exit(EXIT_FAILURE);
+    {
+        util::WallTimer IO_timer;
+        if (!MvsTexturing::IO::load_mesh_from_ply(param.input_mesh, origin_mesh.m_vertices, origin_mesh.m_faces)) {
+            std::cout << "\tmesh load failed. " << std::endl;
+            return 0;
+        }
+        std::cout << "\treading mesh, vertices: " << origin_mesh.m_vertices.rows()
+                  << ", faces: " << origin_mesh.m_faces.rows() << " ... (Took: " << IO_timer.get_elapsed_sec()
+                  << " s) " << std::endl;
+
+        if (param.sparse_model) {
+            IO_timer.reset();
+            MeshSubdivision::make_mesh_dense(origin_mesh.m_vertices, origin_mesh.m_faces, dense_mesh.m_vertices,
+                                             dense_mesh.m_faces, origin_mesh.m_face_colors, dense_mesh.m_face_colors);
+            std::cout << "\tmake mesh dense, vertices: " << dense_mesh.m_vertices.rows()
+                      << ", faces: " << dense_mesh.m_faces.rows() << " ... (Took: " << IO_timer.get_elapsed_sec()
+                      << " s) " << std::endl;
+
+            input_mesh = Utils::eigenMesh_to_mveMesh(dense_mesh.m_vertices, dense_mesh.m_faces);
+        } else {
+            input_mesh = Utils::eigenMesh_to_mveMesh(origin_mesh.m_vertices, origin_mesh.m_faces);
+        }
+
+        if (input_mesh == nullptr || (input_mesh->get_faces().size() % 3 != 0)) {
+            std::cerr << "\tcould not load mesh. " << std::endl;
+            return 0;
+        }
     }
 
     MeshInfo mesh_info(input_mesh);
@@ -67,119 +161,15 @@ int main(int argc, char **argv) {
 
     // Read camera images
     std::cout << "\n### MvsTexturing------Read camera images " << std::endl;
-    std::vector<Base::TextureView> texture_views;
+    std::vector<TextureView> texture_views;
     Builder::build_scene(param.scene_file, &texture_views, temp_dir);
 
-    // Build adjacency graph
-    std::cout << "\n### MvsTexturing------Build adjacency graph " << std::endl;
-    std::size_t const n_faces = input_mesh->get_faces().size() / 3;
-    Base::LabelGraph graph(n_faces);
-    Builder::MVE::build_adjacency_graph(input_mesh, mesh_info, &graph);
-
-    std::cout << "\n### MvsTexturing------View selection " << std::endl;
-    {
-        if (param.labeling_file.empty()) {
-            util::WallTimer timer;
-            namespace VS = ViewSelection;
-
-            // build bvh tree
-            std::cout << "\tBuilding BVH from " << n_faces << " faces... " << std::flush;
-            BVHTree bvh_tree(input_mesh->get_faces(), input_mesh->get_vertices());
-            std::cout << "done. (Took: " << timer.get_elapsed() << " ms)" << std::endl;
-
-            if (param.method_type == "mrf") {
-                std::cout << "\tRunning MRF-algorithm ... " << std::endl;
-                timer.reset();
-                run_mrf_method(input_mesh, bvh_tree, param, graph, texture_views);
-                std::cout << "\n\tMRF optimization done. (Took: " << timer.get_elapsed_sec() << " s)\n";
-            } else if (param.method_type == "projection") {
-                std::cout << "\tRunning Projection-algorithm ... " << std::endl;
-                timer.reset();
-                VS::Projection::solve_projection_problem(input_mesh, mesh_info, bvh_tree, graph, texture_views, param);
-                std::cout << "\n\tProjection method done. (Took: " << timer.get_elapsed_sec() << " s)\n";
-            } else {
-                std::cout << "\tView selection method not supported: " << param.method_type << std::endl;
-                return 0;
-            }
-        } else {
-            std::cout << "Loading labeling from file... " << std::flush;
-
-            /* Load labeling from file. */
-            std::vector<std::size_t> labeling = Utils::vector_from_file<std::size_t>(param.labeling_file);
-            if (labeling.size() != graph.num_nodes()) {
-                std::cerr << "Wrong labeling file for this mesh/scene combination... aborting!" << std::endl;
-                std::exit(EXIT_FAILURE);
-            }
-
-            /* Transfer labeling to graph. */
-            for (std::size_t i = 0; i < labeling.size(); ++i) {
-                const std::size_t label = labeling[i];
-                if (label > texture_views.size()) {
-                    std::cerr << "Wrong labeling file for this mesh/scene combination... aborting!" << std::endl;
-                    std::exit(EXIT_FAILURE);
-                }
-                graph.set_label(i, label);
-            }
-
-            std::cout << "done." << std::endl;
-        }
-        std::cout << "\tView selection done. " << std::endl;
+    if (!map_textures(input_mesh, mesh_info, texture_views, param, origin_mesh, dense_mesh)) {
+        std::cout << "\nMvsTexturing failed. (Took: " << whole_timer.get_elapsed_sec() << " s)" << std::endl;
+        return 0;
     }
 
-    std::cout << "\n### MvsTexturing------Generating Patches " << std::endl;
-    std::vector<MvsTexturing::Base::TexturePatch::Ptr> texture_patches;
-    {
-        using namespace MvsTexturing;
-        util::WallTimer timer;
-        // Create texture patches and adjust them
-        std::vector<std::vector<Base::VertexProjectionInfo>> vertex_projection_infos;
-        AtlasMapper::generate_texture_patches(graph, input_mesh, mesh_info, &texture_views,
-                                              param, &vertex_projection_infos, &texture_patches);
-
-        if (!param.skip_global_seam_leveling) {
-            std::cout << "\tRunning global seam leveling... ";
-            timer.reset();
-            SeamSmoother::global_seam_leveling(graph, input_mesh, mesh_info, vertex_projection_infos, &texture_patches);
-            std::cout << "done. (Took: " << timer.get_elapsed_sec() << " s)\n";
-        } else {
-            timer.reset();
-            std::cout << "\tCalculating validity masks for texture patches... ";
-#pragma omp parallel for schedule(dynamic)
-            for (std::size_t i = 0; i < texture_patches.size(); ++i) {
-                Base::TexturePatch::Ptr texture_patch = texture_patches[i];
-                std::vector<math::Vec3f> patch_adjust_values(texture_patch->get_faces().size() * 3, math::Vec3f(0.0f));
-                texture_patch->adjust_colors(patch_adjust_values);
-            }
-            std::cout << "done. (Took: " << timer.get_elapsed_sec() << " s)\n";
-        }
-
-        if (!param.skip_local_seam_leveling) {
-            std::cout << "\tRunning local seam leveling... " << std::endl;
-            timer.reset();
-            SeamSmoother::local_seam_leveling(graph, input_mesh, vertex_projection_infos, &texture_patches);
-            std::cout << "done. (Took: " << timer.get_elapsed_sec() << " s)\n";
-        }
-    }
-
-    std::cout << "\n### MvsTexturing------Generating Atlases " << std::endl;
-    std::vector<MvsTexturing::Base::TextureAtlas::Ptr> texture_atlases;
-    {
-        util::WallTimer timer;
-        std::cout << "\tgenerating ... " << std::endl;
-        AtlasMapper::generate_texture_atlases(&texture_patches, &texture_atlases,
-                                              param.tone_mapping == Tone_Mapping_Gamma);
-        std::cout << "done. (Took: " << timer.get_elapsed_sec() << " s)\n";
-    }
-
-    std::cout << "\n### MvsTexturing------Write obj model" << std::endl;
-    {
-        std::cout << "\tWriting ..." << std::flush;
-        util::WallTimer timer;
-        MvsTexturing::IO::MVE::save_obj_mesh(param.output_prefix, input_mesh, texture_atlases);
-        std::cout << " done. (Took: " << timer.get_elapsed_sec() << "s)" << std::endl;
-    }
-
-    std::cout << "\nMvsTexturing done. (Took: " << whole_timer.get_elapsed_sec() << " s)" << std::endl;
+    std::cout << "\nMvsTexturing done. (Took: " << whole_timer.get_elapsed_sec() / double(60) << " min)" << std::endl;
     return 0;
 }
 
@@ -257,9 +247,9 @@ void preprocessing(int argc, char **argv) {
     std::cout << argv[0] << " (built on " << __DATE__ << ", " << __TIME__ << ")" << std::endl;
 }
 
-void run_mrf_method(const MvsTexturing::MeshPtr mesh, const BVHTree &bvh_tree,
-                    const MvsTexturing::Parameter &param, MvsTexturing::Base::LabelGraph &graph,
-                    std::vector<MvsTexturing::Base::TextureView> &texture_views) {
+void run_mrf_method(const MeshPtr mesh, const BVHTree &bvh_tree,
+                    const Parameter &param, LabelGraph &graph,
+                    TextureViews &texture_views) {
     using namespace MvsTexturing;
     namespace VS = ViewSelection;
     typedef Base::SparseTable<std::uint32_t, std::uint16_t, double> DataCosts;
@@ -286,4 +276,240 @@ void run_mrf_method(const MvsTexturing::MeshPtr mesh, const BVHTree &bvh_tree,
         std::cout << "done." << std::endl;
     }
     VS::Mrf::solve_mrf_problem(data_costs, graph, param);
+}
+
+bool map_textures(MeshPtr input_mesh, MeshInfo &mesh_info, TextureViews &texture_views,
+                  const Parameter &param, const __inner__::Mesh &origin_mesh,
+                  const __inner__::Mesh &dense_mesh) {
+    // Build adjacency graph
+    std::cout << "\n### MvsTexturing------Build adjacency graph " << std::endl;
+    std::size_t const n_faces = input_mesh->get_faces().size() / 3;
+    LabelGraph graph(n_faces);
+    MvsTexturing::Builder::MVE::build_adjacency_graph(input_mesh, mesh_info, &graph);
+
+    std::cout << "\n### MvsTexturing------View selection " << std::endl;
+    {
+        if (param.labeling_file.empty()) {
+            util::WallTimer timer;
+            namespace VS = MvsTexturing::ViewSelection;
+
+            // build bvh tree
+            std::cout << "\tBuilding BVH from " << n_faces << " faces... " << std::flush;
+            BVHTree bvh_tree(input_mesh->get_faces(), input_mesh->get_vertices());
+            std::cout << "done. (Took: " << timer.get_elapsed() << " ms)" << std::endl;
+
+            if (param.method_type == "mrf") {
+                std::cout << "\tRunning MRF-algorithm ... " << std::endl;
+                timer.reset();
+                run_mrf_method(input_mesh, bvh_tree, param, graph, texture_views);
+                std::cout << "\n\tMRF optimization done. (Took: " << timer.get_elapsed_sec() << " s)\n";
+            } else if (param.method_type == "projection") {
+                std::cout << "\tRunning Projection-algorithm ... " << std::endl;
+                timer.reset();
+                VS::Projection::solve_projection_problem(input_mesh, mesh_info, bvh_tree, graph, texture_views, param);
+                std::cout << "\n\tProjection method done. (Took: " << timer.get_elapsed_sec() << " s)\n";
+            } else {
+                std::cout << "\tView selection method not supported: " << param.method_type << std::endl;
+                return false;
+            }
+        } else {
+            std::cout << "Loading labeling from file... " << std::flush;
+
+            /* Load labeling from file. */
+            std::vector<std::size_t> labeling = MvsTexturing::Utils::vector_from_file<std::size_t>(param.labeling_file);
+            if (labeling.size() != graph.num_nodes()) {
+                std::cerr << "Wrong labeling file for this mesh/scene combination... aborting!" << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
+
+            /* Transfer labeling to graph. */
+            for (std::size_t i = 0; i < labeling.size(); ++i) {
+                const std::size_t label = labeling[i];
+                if (label > texture_views.size()) {
+                    std::cerr << "Wrong labeling file for this mesh/scene combination... aborting!" << std::endl;
+                    std::exit(EXIT_FAILURE);
+                }
+                graph.set_label(i, label);
+            }
+
+            std::cout << "done." << std::endl;
+        }
+        std::cout << "\tView selection done. " << std::endl;
+    }
+
+    std::cout << "\n### MvsTexturing------Generating Patches " << std::endl;
+    std::vector<TexturePatch::Ptr> texture_patches;
+    {
+        using namespace MvsTexturing;
+        util::WallTimer timer;
+        // Create texture patches and adjust them
+        std::vector<std::vector<Base::VertexProjectionInfo>> vertex_projection_infos;
+        AtlasMapper::generate_texture_patches(graph, input_mesh, mesh_info, &texture_views,
+                                              param, &vertex_projection_infos, &texture_patches);
+
+        if (!param.skip_global_seam_leveling) {
+            std::cout << "\tRunning global seam leveling... ";
+            timer.reset();
+            SeamSmoother::global_seam_leveling(graph, input_mesh, mesh_info, vertex_projection_infos, &texture_patches);
+            std::cout << "done. (Took: " << timer.get_elapsed_sec() << " s)\n";
+        } else {
+            timer.reset();
+            std::cout << "\tCalculating validity masks for texture patches... ";
+#pragma omp parallel for schedule(dynamic)
+            for (std::size_t i = 0; i < texture_patches.size(); ++i) {
+                Base::TexturePatch::Ptr texture_patch = texture_patches[i];
+                std::vector<math::Vec3f> patch_adjust_values(texture_patch->get_faces().size() * 3, math::Vec3f(0.0f));
+                texture_patch->adjust_colors(patch_adjust_values);
+            }
+            std::cout << "done. (Took: " << timer.get_elapsed_sec() << " s)\n";
+        }
+
+        if (!param.skip_local_seam_leveling) {
+            std::cout << "\tRunning local seam leveling... " << std::endl;
+            timer.reset();
+            SeamSmoother::local_seam_leveling(graph, input_mesh, vertex_projection_infos, &texture_patches);
+            std::cout << "done. (Took: " << timer.get_elapsed_sec() << " s)\n";
+        }
+
+        if (param.sparse_model) {
+            std::vector<TexturePatch::Ptr> final_texture_patches;
+            texturing_from_dense_to_sparse_model(origin_mesh, dense_mesh, texture_patches, param,
+                                                 &final_texture_patches);
+            texture_patches.swap(final_texture_patches);
+        }
+    }
+
+    std::cout << "\n### MvsTexturing------Generating Atlases " << std::endl;
+    std::vector<MvsTexturing::Base::TextureAtlas::Ptr> texture_atlases;
+    {
+        using namespace MvsTexturing;
+        util::WallTimer timer;
+        std::cout << "\tgenerating ... " << std::endl;
+        AtlasMapper::generate_texture_atlases(&texture_patches, &texture_atlases,
+                                              param.tone_mapping == Tone_Mapping_Gamma);
+        std::cout << "done. (Took: " << timer.get_elapsed_sec() << " s)\n";
+    }
+
+    std::cout << "\n### MvsTexturing------Write obj model" << std::endl;
+    {
+        std::cout << "\tWriting ..." << std::flush;
+        util::WallTimer timer;
+        if (!param.sparse_model) {
+            MvsTexturing::IO::MVE::save_obj_mesh(param.output_prefix, input_mesh, texture_atlases);
+        } else {
+            input_mesh = MvsTexturing::Utils::eigenMesh_to_mveMesh(origin_mesh.m_vertices, origin_mesh.m_faces);
+            MvsTexturing::IO::MVE::save_obj_mesh(param.output_prefix, input_mesh, texture_atlases);
+        }
+        std::cout << " done. (Took: " << timer.get_elapsed_sec() << "s)" << std::endl;
+    }
+
+    return true;
+}
+
+bool texturing_from_dense_to_sparse_model(const __inner__::Mesh &sparse_mesh,
+                                          const __inner__::Mesh &dense_mesh,
+                                          const TexturePatches &texture_patches,
+                                          const Parameter &param,
+                                          std::vector<TexturePatch::Ptr> *final_patches) {
+
+    // build relations between sparse and dense model
+    std::vector<std::vector<std::size_t>> face_subdivisions;
+    face_subdivisions.resize(sparse_mesh.m_faces.rows());
+    {
+        std::map<__inner__::Color, std::size_t> tmp_color_face_map;
+        for (int i = 0; i < sparse_mesh.m_face_colors.rows(); i++) {
+            const __inner__::Color face_color(
+                    sparse_mesh.m_face_colors(i, 0),
+                    sparse_mesh.m_face_colors(i, 1),
+                    sparse_mesh.m_face_colors(i, 2));
+            tmp_color_face_map[face_color] = i;
+        }
+
+        for (int dense_face_id = 0; dense_face_id < dense_mesh.m_face_colors.rows(); dense_face_id++) {
+            const __inner__::Color dense_face_color(
+                    dense_mesh.m_face_colors(dense_face_id, 0),
+                    dense_mesh.m_face_colors(dense_face_id, 1),
+                    dense_mesh.m_face_colors(dense_face_id, 2));
+
+            if (tmp_color_face_map.find(dense_face_color) != tmp_color_face_map.end()) {
+                std::size_t sparse_face_idx = tmp_color_face_map[dense_face_color];
+                face_subdivisions[sparse_face_idx].push_back(dense_face_id);
+            }
+        }
+    }
+
+    using FaceGroup = MeshSimplification::FaceGroup;
+    using TriMesh = MeshPolyRefinement::Base::TriMesh;
+
+    // detect planes and init face group
+    std::vector<FaceGroup> planar_groups;
+    {
+        TriMesh sparse_tri_mesh;
+        MvsTexturing::Utils::eigenMesh_to_TriMesh(sparse_mesh.m_vertices, sparse_mesh.m_faces, sparse_tri_mesh);
+
+        using namespace MeshPolyRefinement;
+        // detect planes on mesh using region-growing
+        PlaneEstimation::region_growing_plane_estimate(sparse_tri_mesh, param.planar_score,
+                                                       param.angle_threshold, param.ratio_threshold,
+                                                       param.min_plane_size);
+
+        //expand plane segment regions
+        PlaneEstimation::plane_region_expand(sparse_tri_mesh, 50.0, 45.0);
+
+        //filter small non-plane regions
+        PlaneEstimation::plane_region_refine(sparse_tri_mesh);
+
+        //merge parallel adjacent plane segments
+        PlaneEstimation::plane_region_merge(sparse_tri_mesh);
+
+        planar_groups.resize(sparse_tri_mesh.m_plane_groups.size());
+        for (std::size_t group_idx = 0; group_idx < sparse_tri_mesh.m_plane_groups.size(); group_idx++) {
+            const Base::PlaneGroup &group = sparse_tri_mesh.m_plane_groups[group_idx];
+            FaceGroup &dest_group = planar_groups[group_idx];
+
+            for (std::size_t group_face_idx : group.m_indices) {
+                dest_group.m_faces.push_back(group_face_idx);
+            }
+
+            dest_group.m_plane_normal = group.m_plane_normal;
+            dest_group.m_plane_center = group.m_plane_center;
+            dest_group.m_x_axis = group.m_x_axis;
+            dest_group.m_y_axis = group.m_y_axis;
+        }
+    }
+
+    using namespace MvsTexturing;
+    // init texture coords and face materials
+    std::vector<FloatImageConstPtr> dense_mesh_face_materials;
+    std::vector<math::Vec2f> dense_mesh_face_texture_coords;
+    {
+        std::size_t n_dense_faces = dense_mesh.m_faces.rows();
+        dense_mesh_face_materials.resize(n_dense_faces);
+        dense_mesh_face_texture_coords.resize(n_dense_faces * 3);
+
+        for (auto it = texture_patches.begin(); it != texture_patches.end(); it++) {
+            const std::vector<std::size_t> &faces_in_patch = (*it)->get_faces();
+            const std::vector<math::Vec2f> &texture_coords_in_patch = (*it)->get_texcoords();
+            if (faces_in_patch.size() * 3 != texture_coords_in_patch.size()) {
+                std::cout << "size of faces and texcoords in TexturePatch is not match. \n";
+                return false;
+            }
+
+            for (std::size_t i = 0; i < faces_in_patch.size(); i++) {
+                std::size_t face_id = faces_in_patch[i];
+                dense_mesh_face_materials[face_id] = (*it)->get_image();
+
+                for (int c = 0; c < 3; c++) {
+                    dense_mesh_face_texture_coords[face_id * 3 + c] = texture_coords_in_patch[i * 3 + c];
+                }
+            }
+        }
+    }
+
+    MeshSimplification::simplify_mesh_texture(sparse_mesh.m_vertices, sparse_mesh.m_faces, planar_groups,
+
+                                              dense_mesh.m_vertices, dense_mesh.m_faces, dense_mesh_face_texture_coords,
+                                              dense_mesh_face_materials,
+
+                                              face_subdivisions, final_patches);
 }
