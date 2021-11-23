@@ -5,10 +5,15 @@
 
 #define TINYPLY_IMPLEMENTATION
 #include <Base/TriMesh.h>
-#include <PlaneEstimation/RegionGrowing.h>
-#include <PlaneEstimation/RegionExpand.h>
+
 #include <DataIO/Repair.h>
 #include <DataIO/IO.h>
+#include <PlaneEstimation/RegionGrowing.h>
+#include <PlaneEstimation/RegionExpand.h>
+#include <PlaneDecimation/PlaneEdgeDecimator.h>
+#include <PlaneOptimization/Optimize.h>
+#include <PlaneOptimization/MeshSubdivide.h>
+#include <PlaneDecimation/DelaunayRemesh2D.h>
 
 int main(int argc, char *argv[]) {
     namespace bpo = boost::program_options;
@@ -59,6 +64,28 @@ int main(int argc, char *argv[]) {
 
     //merge parallel adjacent plane segments
     PlaneEstimation::plane_region_merge(mesh);
+
+    //decimate facets inside plane segments, plane boundary edges remain unchanged
+    PlaneDecimation::Decimator decimator(mesh);
+    std::cout << "MeshPolyRefinement------Plane Decimating" << std::endl;
+    decimator.decimate();
+
+    //split edges that may cause degeneration during optimization
+    PlaneOptimization::MeshSubdivide subdivide(mesh);
+    subdivide.split();
+
+    //optimize vertex positions
+    std::cout << "MeshPolyRefinement------Optimizing" << std::endl;
+    PlaneOptimization::optimize_mesh(mesh,100);
+
+    //decimate facets, edges between two plane segments are collapsed
+    std::cout << "MeshPolyRefinement------Plane Edge Decimating" << std::endl;
+    PlaneDecimation::PlaneEdgeDecimator edge_decimator(mesh);
+    edge_decimator.decimate();
+
+    //remesh plane facets to remove fold facets
+    PlaneDecimation::DelaunayRemesh2D delaunay_remesh_2d(mesh);
+    delaunay_remesh_2d.remesh();
 
     IO::repair_non_manifold(mesh);
     IO::save_mesh_plane_segments(out_mesh_path, mesh);

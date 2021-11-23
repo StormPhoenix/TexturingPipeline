@@ -27,8 +27,8 @@ namespace MeshPolyRefinement {
 			// Eigen::VectorXi EMAP;
 			// Eigen::MatrixXi E, EF, EI;
 			igl::edge_flaps(m_mesh.m_faces, E, EMAP, EF, EI);
-			printf("Total %d edges\n",E.rows());
-			printf("Max plane index %d, min plane index %d\n", m_mesh.m_face_plane_index.maxCoeff(),m_mesh.m_face_plane_index.minCoeff());
+//			printf("Total %d edges\n",E.rows());
+//			printf("Max plane index %d, min plane index %d\n", m_mesh.m_face_plane_index.maxCoeff(),m_mesh.m_face_plane_index.minCoeff());
 			for (int ei = 0; ei < E.rows(); ++ei) {
 
 				int f0 = EF(ei, 0), f1 = EF(ei, 1); 
@@ -167,7 +167,7 @@ namespace MeshPolyRefinement {
 				
 			}
 
-			printf("origin %d planes, after merge %d planes\n", tmp.size(), m_mesh.m_plane_groups.size());
+//			printf("origin %d planes, after merge %d planes\n", tmp.size(), m_mesh.m_plane_groups.size());
 			for(int i = 0; i < m_mesh.m_plane_groups.size();++i){
 				//printf("group %d, face number %d\n", i, m_mesh.m_plane_groups[i].m_indices.size());
 				for(int fi:m_mesh.m_plane_groups[i].m_indices){
@@ -179,7 +179,7 @@ namespace MeshPolyRefinement {
 		}
 
 		void PlaneMerge::merge() {
-			printf("%d planes before merge\n",m_mesh.m_plane_groups.size());
+//			printf("%d planes before merge\n",m_mesh.m_plane_groups.size());
 			
 			//for (int vi = 0; vi < m_mesh.m_vertices.rows(); ++vi) {
 			for (const auto& ef : EF.rowwise()) {
@@ -230,7 +230,7 @@ namespace MeshPolyRefinement {
 			}
 
 			update_mesh();
-			printf("%d planes after merge\n",m_mesh.m_plane_groups.size());
+//			printf("%d planes after merge\n",m_mesh.m_plane_groups.size());
 		}
 	}
 }

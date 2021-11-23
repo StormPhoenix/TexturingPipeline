@@ -35,10 +35,10 @@ namespace MeshPolyRefinement {
 				surface_mesh.add_face(v_index_map[f[0]], v_index_map[f[1]], v_index_map[f[2]]);
 			}
 
-			printf("input %d points, %d polygons\n", points.size(), polygons.size());
+			printf("input %ld points, %ld polygons\n", points.size(), polygons.size());
 			PMP::orient_polygon_soup(points, polygons);
 			
-			printf("output %d points, %d polygons\n", points.size(), polygons.size());
+			printf("output %ld points, %ld polygons\n", points.size(), polygons.size());
 			PMP::orient_triangle_soup_with_reference_triangle_mesh(surface_mesh,points,polygons);
 			// Polyhedron poly_mesh;
   			// PMP::polygon_soup_to_polygon_mesh(points, polygons, poly_mesh);
@@ -101,7 +101,6 @@ namespace MeshPolyRefinement {
 				}
 			}
 			Base::IndexMatrix tmp = faces(valid_faces, Eigen::all);
-			printf("Removing degenerate face: %d->%d\n", faces.rows(), valid_faces.size());
 			faces.resize(tmp.rows(), 3);
 			faces = tmp;
 		}
@@ -195,13 +194,13 @@ namespace MeshPolyRefinement {
 				}
 				
 			}
-			printf("Init (origin face, cgal face): (%d, %d)\n", faces.rows(), cgal_mesh.num_faces());
+
 			//split non-manifold vertices
 			std::vector<std::vector<Vertex_index> > duplicated_vertices;
 			std::size_t new_vertices_nb = PMP::duplicate_non_manifold_vertices(cgal_mesh,
 				NP::output_iterator(
 					std::back_inserter(duplicated_vertices)));
-			printf("Create %d new vertices\nProcessed face: %d\n", new_vertices_nb, cgal_mesh.num_faces());
+//			printf("Create %d new vertices\nProcessed face: %d\n", new_vertices_nb, cgal_mesh.num_faces());
 			
 			
 			//save to Eigen matrix

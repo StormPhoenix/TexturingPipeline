@@ -56,4 +56,5 @@
 - aym(debug case)
     - WorkDirectory: /Users/stormphoenix/Workspace/Projects/CLionProjects/3dReconstruction/Dataset/aym
     - Options: --scene_file ./visualSFM/nvm_anyuanmen.nvm --input_mesh ./Input/model_labeled.ply --output_prefix ./Output_TexturePipeline/Textured_model --mrf_call_lib mapmap --outlier_removal gauss_clamping --method_type projection --keep_unseen_faces true --skip_global_seam_leveling true --skip_local_seam_leveling true --skip_hole_filling true
-    --scene_file ./visualSFM/nvm_anyuanmen.nvm --input_mesh ./Input/model_labeled_sim_2.ply --output_prefix ./Output_TexturePipeline/Textured_model --mrf_call_lib mapmap --outlier_removal gauss_clamping --method_type projection --keep_unseen_faces true --skip_hole_filling true
+    - Options: --scene_file ./visualSFM/nvm_anyuanmen.nvm --input_mesh ./Input/model_labeled_sim_2.ply --output_prefix ./Output_TexturePipeline/Textured_model --mrf_call_lib mapmap --outlier_removal gauss_clamping --method_type projection --keep_unseen_faces true --skip_hole_filling true
+    - Options: --scene_file ./visualSFM/nvm_anyuanmen.nvm --input_mesh ./Input/debug.ply --output_prefix ./Output_TexturePipeline/debug_make_dense --mrf_call_lib openmvs --outlier_removal gauss_clamping --method_type mrf --keep_unseen_faces true --skip_hole_filling true

@@ -49,6 +49,7 @@ namespace MvsTexturing {
         double min_plane_size;
 
         bool sparse_model = false;
+        bool debug_mode = false;
     };
 }
 

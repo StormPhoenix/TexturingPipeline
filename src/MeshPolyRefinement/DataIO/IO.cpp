@@ -139,7 +139,7 @@ namespace MeshPolyRefinement {
 			//remove_identical_index_faces(mesh.m_faces);
 
 			mesh.m_face_plane_index = Eigen::Vector<int, -1>::Constant(mesh.m_faces.rows(), -1);
-			std::cout << "File loaded. Constructing topology..." << std::endl;
+//			std::cout << "File loaded. Constructing topology..." << std::endl;
 			igl::triangle_triangle_adjacency(mesh.m_faces, mesh.m_ff_adjacency);
 
 			std::vector<std::vector<int>> VFi;
@@ -150,7 +150,7 @@ namespace MeshPolyRefinement {
 			igl::per_face_normals(mesh.m_vertices, mesh.m_faces, N);
 
 			mesh.m_face_normals = std::move(std::move(N));
-			std::cout << "Computing planar score..." << std::endl;
+//			std::cout << "Computing planar score..." << std::endl;
 			compute_face_planar_score(mesh);
 			//std::cout << "Test face semantic labels" << std::endl;
 			if (mesh.m_vertex_colors.rows() == 0) {

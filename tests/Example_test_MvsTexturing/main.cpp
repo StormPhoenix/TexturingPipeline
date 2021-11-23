@@ -86,9 +86,9 @@ namespace __inner__ {
     };
 }
 
-bool texturing_from_dense_to_sparse_model(const __inner__::Mesh &sparse_mesh, const __inner__::Mesh &dense_mesh,
-                                          const TexturePatches &texture_patches, const Parameter &param,
-                                          std::vector<TexturePatch::Ptr> *final_patches);
+bool dense_texture_to_sparse(const __inner__::Mesh &sparse_mesh, const __inner__::Mesh &dense_mesh,
+                             const TexturePatches &texture_patches, const Parameter &param,
+                             std::vector<TexturePatch::Ptr> *final_patches);
 
 bool map_textures(MeshPtr input_mesh, MeshInfo &mesh_info,
                   TextureViews &texture_views, const Parameter &param,
@@ -128,9 +128,14 @@ int main(int argc, char **argv) {
             IO_timer.reset();
             MeshSubdivision::make_mesh_dense(origin_mesh.m_vertices, origin_mesh.m_faces, dense_mesh.m_vertices,
                                              dense_mesh.m_faces, origin_mesh.m_face_colors, dense_mesh.m_face_colors);
-            std::cout << "\tmake mesh dense, vertices: " << dense_mesh.m_vertices.rows()
+            std::cout << "\tmodel is too sparse, make the mesh dense ... vertices: " << dense_mesh.m_vertices.rows()
                       << ", faces: " << dense_mesh.m_faces.rows() << " ... (Took: " << IO_timer.get_elapsed_sec()
                       << " s) " << std::endl;
+
+            if (param.debug_mode) {
+                IO::save_ply_mesh(Utils::str_prefix(param.output_prefix) + "_Debug_dense.ply",
+                                  dense_mesh.m_vertices, dense_mesh.m_faces);
+            }
 
             input_mesh = Utils::eigenMesh_to_mveMesh(dense_mesh.m_vertices, dense_mesh.m_faces);
         } else {
@@ -162,7 +167,12 @@ int main(int argc, char **argv) {
     // Read camera images
     std::cout << "\n### MvsTexturing------Read camera images " << std::endl;
     std::vector<TextureView> texture_views;
-    Builder::build_scene(param.scene_file, &texture_views, temp_dir);
+    {
+        util::WallTimer IO_timer;
+        std::cout << "\tread camera poses and images ... ";
+        Builder::build_scene(param.scene_file, &texture_views, temp_dir);
+        std::cout << "(Took: " << IO_timer.get_elapsed_sec() << " s)" << std::endl;
+    }
 
     if (!map_textures(input_mesh, mesh_info, texture_views, param, origin_mesh, dense_mesh)) {
         std::cout << "\nMvsTexturing failed. (Took: " << whole_timer.get_elapsed_sec() << " s)" << std::endl;
@@ -210,7 +220,8 @@ void parse_args(int argc, char **argv, MvsTexturing::Parameter &param) {
             ("tone_mapping", bpo::value<std::string>()->default_value("none"),
              "Tone mapping method: {none, gamma} [none]")
             ("mrf_call_lib", bpo::value<std::string>()->default_value("mapmap"),
-             "MRF call library: {mapmap, openmvs} [mapmap]");
+             "MRF call library: {mapmap, openmvs} [mapmap]")
+            ("debug_mode", bpo::value<bool>()->default_value(false), "Debug mode: {true, false} [false]");
     bpo::store(bpo::parse_command_line(argc, argv, opts), vm);
 
     param.scene_file = vm["scene_file"].as<std::string>();
@@ -240,6 +251,7 @@ void parse_args(int argc, char **argv, MvsTexturing::Parameter &param) {
     param.min_plane_size = 5;
 
     param.sparse_model = vm["sparse_model"].as<bool>();
+    param.debug_mode = vm["debug_mode"].as<bool>();
 }
 
 void preprocessing(int argc, char **argv) {
@@ -299,10 +311,10 @@ bool map_textures(MeshPtr input_mesh, MeshInfo &mesh_info, TextureViews &texture
             std::cout << "done. (Took: " << timer.get_elapsed() << " ms)" << std::endl;
 
             if (param.method_type == "mrf") {
-                std::cout << "\tRunning MRF-algorithm ... " << std::endl;
+                std::cout << "\trunning MRF-algorithm ... " << std::endl;
                 timer.reset();
                 run_mrf_method(input_mesh, bvh_tree, param, graph, texture_views);
-                std::cout << "\n\tMRF optimization done. (Took: " << timer.get_elapsed_sec() << " s)\n";
+                std::cout << "\n\tmrf optimization done. (Took: " << timer.get_elapsed_sec() << " s)\n";
             } else if (param.method_type == "projection") {
                 std::cout << "\tRunning Projection-algorithm ... " << std::endl;
                 timer.reset();
@@ -344,17 +356,19 @@ bool map_textures(MeshPtr input_mesh, MeshInfo &mesh_info, TextureViews &texture
         util::WallTimer timer;
         // Create texture patches and adjust them
         std::vector<std::vector<Base::VertexProjectionInfo>> vertex_projection_infos;
+        std::cout << "\tgenerate primary texture patches ... ";
         AtlasMapper::generate_texture_patches(graph, input_mesh, mesh_info, &texture_views,
                                               param, &vertex_projection_infos, &texture_patches);
+        std::cout << texture_patches.size() << " patches. (Took: " << timer.get_elapsed_sec() << "s)\n";
 
         if (!param.skip_global_seam_leveling) {
-            std::cout << "\tRunning global seam leveling... ";
+            std::cout << "\trunning global seam leveling... ";
             timer.reset();
             SeamSmoother::global_seam_leveling(graph, input_mesh, mesh_info, vertex_projection_infos, &texture_patches);
-            std::cout << "done. (Took: " << timer.get_elapsed_sec() << " s)\n";
+            std::cout << "\tdone. (Took: " << timer.get_elapsed_sec() << " s)\n";
         } else {
             timer.reset();
-            std::cout << "\tCalculating validity masks for texture patches... ";
+            std::cout << "\tcalculating validity masks for texture patches... ";
 #pragma omp parallel for schedule(dynamic)
             for (std::size_t i = 0; i < texture_patches.size(); ++i) {
                 Base::TexturePatch::Ptr texture_patch = texture_patches[i];
@@ -365,7 +379,7 @@ bool map_textures(MeshPtr input_mesh, MeshInfo &mesh_info, TextureViews &texture
         }
 
         if (!param.skip_local_seam_leveling) {
-            std::cout << "\tRunning local seam leveling... " << std::endl;
+            std::cout << "\trunning local seam leveling ... ";
             timer.reset();
             SeamSmoother::local_seam_leveling(graph, input_mesh, vertex_projection_infos, &texture_patches);
             std::cout << "done. (Took: " << timer.get_elapsed_sec() << " s)\n";
@@ -373,9 +387,10 @@ bool map_textures(MeshPtr input_mesh, MeshInfo &mesh_info, TextureViews &texture
 
         if (param.sparse_model) {
             std::vector<TexturePatch::Ptr> final_texture_patches;
-            texturing_from_dense_to_sparse_model(origin_mesh, dense_mesh, texture_patches, param,
-                                                 &final_texture_patches);
+            std::cout << "\tretrieve sparse model texture from dense model ... ";
+            dense_texture_to_sparse(origin_mesh, dense_mesh, texture_patches, param, &final_texture_patches);
             texture_patches.swap(final_texture_patches);
+            std::cout << "done. (Took: " << timer.get_elapsed_sec() << " s)\n";
         }
     }
 
@@ -406,11 +421,9 @@ bool map_textures(MeshPtr input_mesh, MeshInfo &mesh_info, TextureViews &texture
     return true;
 }
 
-bool texturing_from_dense_to_sparse_model(const __inner__::Mesh &sparse_mesh,
-                                          const __inner__::Mesh &dense_mesh,
-                                          const TexturePatches &texture_patches,
-                                          const Parameter &param,
-                                          std::vector<TexturePatch::Ptr> *final_patches) {
+bool dense_texture_to_sparse(const __inner__::Mesh &sparse_mesh, const __inner__::Mesh &dense_mesh,
+                             const TexturePatches &texture_patches, const Parameter &param,
+                             std::vector<TexturePatch::Ptr> *final_patches) {
 
     // build relations between sparse and dense model
     std::vector<std::vector<std::size_t>> face_subdivisions;

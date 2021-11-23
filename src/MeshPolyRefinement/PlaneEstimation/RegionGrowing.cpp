@@ -37,7 +37,7 @@ namespace MeshPolyRefinement {
 		SeedMap::SeedMap(const Base::TriMesh& mesh, Base::Scalar thres)
 		:m_planar_score(mesh.m_face_planar_score){
 
-			std::cout << "Constructing seed map... ..." << std::endl;
+//			std::cout << "Constructing seed map... ..." << std::endl;
 			m_seed_order.resize(mesh.m_faces.rows());
 			m_thres = thres;
 			
@@ -236,11 +236,11 @@ namespace MeshPolyRefinement {
 			FaceNeighbor face_neighbor(mesh);
 			PlaneRegion plane_region(mesh, score_thres, angle, ratio, min_size);
 			SeedMap seed_map(mesh,score_thres);
-			std::cout << "Seed map constructed" << std::endl;
+//			std::cout << "Seed map constructed" << std::endl;
 			std::vector<std::size_t> input_face_range(mesh.m_faces.rows());
 			Region_growing region_growing(input_face_range, face_neighbor, plane_region, seed_map);
 			region_growing.detect(std::back_inserter(regions));
-			std::cout << "Detect " << regions.size() << ", " << plane_region.m_valid_groups.size() << " planes" << std::endl;
+//			std::cout << "Detect " << regions.size() << ", " << plane_region.m_valid_groups.size() << " planes" << std::endl;
 			mesh.m_plane_groups = plane_region.m_valid_groups;
 			
 			auto construct_map = [&](int group_index) {

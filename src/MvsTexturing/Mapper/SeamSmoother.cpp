@@ -181,7 +181,6 @@ namespace MvsTexturing {
             mve::TriangleMesh::VertexList const &vertices = mesh->get_vertices();
             std::size_t const num_vertices = vertices.size();
 
-            std::cout << "\tCreate matrices for optimization... " << std::flush;
             std::vector<std::map<std::size_t, std::size_t> > vertlabel2row;
             vertlabel2row.resize(num_vertices);
 
@@ -288,8 +287,7 @@ namespace MvsTexturing {
             }); // value != 0.0f is only to suppress a compiler warning
 
             std::vector<std::map<std::size_t, math::Vec3f> > adjust_values(num_vertices);
-            std::cout << " done." << std::endl;
-            std::cout << "\tLhs dimensionality: " << Lhs.rows() << " x " << Lhs.cols() << std::endl;
+            std::cout << "\n\tLhs dimensionality: " << Lhs.rows() << " x " << Lhs.cols() << std::endl;
 
             util::WallTimer timer;
             std::cout << "\tCalculating adjustments:" << std::endl;

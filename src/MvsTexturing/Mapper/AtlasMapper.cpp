@@ -481,7 +481,6 @@ namespace MvsTexturing {
 
             std::size_t num_patches = 0;
 
-            std::cout << "\tRunning... " << std::flush;
 #pragma omp parallel for schedule(dynamic)
             for (std::size_t i = 0; i < texture_views->size(); ++i) {
 
@@ -629,9 +628,6 @@ namespace MvsTexturing {
 
             // 再次合并
             merge_vertex_projection_infos(vertex_projection_infos);
-
-            std::cout << "done. (Took " << timer.get_elapsed_sec() << "s)" << std::endl;
-            std::cout << "\t" << num_patches << " texture patches." << std::endl;
         }
 
         /**

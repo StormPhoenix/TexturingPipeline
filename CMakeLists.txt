@@ -57,6 +57,9 @@ endif (NOT CGAL_FOUND)
 
 set(EIGEN3_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/external/eigen3)
 
+set(CDT_DIR ${PROJECT_SOURCE_DIR}/external/CDT)
+set(CDT_INCLUDE_DIR ${CDT_DIR}/CDT/include)
+
 set(LIBIGL_DIR ${PROJECT_SOURCE_DIR}/external/libigl)
 set(LIBIGL_INCLUDE_DIR ${LIBIGL_DIR}/include)
 
@@ -68,6 +71,9 @@ set(MVE_INCLUDE_DIR ${MVE_Src}/libs)
 
 set(RAYINT_Src ${PROJECT_SOURCE_DIR}/external/rayint)
 set(RAYINT_INCLUDE_DIR ${RAYINT_Src}/libs)
+
+## Debug
+message(STATUS "Debug Boost include: ${Boost_INCLUDE_DIR}")
 
 set(Mapmap_Src ${PROJECT_SOURCE_DIR}/external/mapmap_cpu)
 set(Mapmap_INCLUDE_DIR ${Mapmap_Src})

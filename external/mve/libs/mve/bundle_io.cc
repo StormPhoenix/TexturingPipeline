@@ -78,7 +78,7 @@ load_nvm_bundle (std::string const& filename,
         throw util::FileException(filename, std::strerror(errno));
 
     /* Check NVM file signature. */
-    std::cout << "NVM: Loading file..." << std::endl;
+//    std::cout << "NVM: Loading file..." << std::endl;
     std::string signature;
     in >> signature;
     if (signature != "NVM_V3")
@@ -107,7 +107,7 @@ load_nvm_bundle (std::string const& filename,
     nvm_cams.reserve(num_views);
 
     /* Read views. */
-    std::cout << "NVM: Number of views: " << num_views << std::endl;
+//    std::cout << "NVM: Number of views: " << num_views << std::endl;
     std::string nvm_path = util::fs::dirname(filename);
     for (int i = 0; i < num_views; ++i)
     {
@@ -161,7 +161,7 @@ load_nvm_bundle (std::string const& filename,
     features.reserve(num_features);
 
     /* Read points. */
-    std::cout << "NVM: Number of features: " << num_features << std::endl;
+//    std::cout << "NVM: Number of features: " << num_features << std::endl;
     std::size_t num_strange_points = 0;
     for (int i = 0; i < num_features; ++i)
     {

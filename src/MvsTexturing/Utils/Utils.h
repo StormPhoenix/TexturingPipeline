@@ -120,6 +120,17 @@ namespace MvsTexturing {
             float blue = math::clamp(std::min(mvalue + 0.5f, -mvalue + 2.5f));
             return math::Vec4f(red, green, blue, 1.0f);
         }
+
+        inline std::string str_prefix(const std::string &str) {
+            std::string prefix = "";
+            std::size_t dotpos = str.find_last_of('.');
+            if (dotpos == std::string::npos || dotpos == 0) {
+                prefix = str;
+            } else {
+                prefix = str.substr(0, dotpos);
+            }
+            return prefix;
+        }
     }
 }
 #endif //TEXTURINGPIPELINE_UTILS_H
