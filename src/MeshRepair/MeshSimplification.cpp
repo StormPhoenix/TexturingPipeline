@@ -12,6 +12,58 @@
 
 namespace MeshSimplification {
     namespace __inner__ {
+        struct Face {
+            std::size_t v[3];
+
+            explicit Face() {
+                v[0] = v[1] = v[2] = 0;
+            }
+
+            explicit Face(std::size_t v0, std::size_t v1, std::size_t v2) {
+                if (v0 == v1 || v0 == v2 || v1 == v2) {
+                    throw std::runtime_error("face vertex repeated. ");
+                }
+
+                v[0] = v0;
+                v[1] = v1;
+                v[2] = v2;
+
+                if (v[0] > v[1]) {
+                    std::swap(v[0], v[1]);
+                }
+
+                if (v[0] > v[2]) {
+                    std::swap(v[0], v[2]);
+                }
+
+                if (v[1] > v[2]) {
+                    std::swap(v[1], v[2]);
+                }
+            }
+
+            void operator=(const Face &f) {
+                v[0] = f.v[0];
+                v[1] = f.v[1];
+                v[2] = f.v[2];
+            }
+
+            bool operator<(const struct Face &other) const {
+                if (v[0] < other.v[0]) {
+                    return true;
+                } else if (v[0] == other.v[0]) {
+                    if (v[1] < other.v[1]) {
+                        return true;
+                    } else if (v[1] == other.v[1]) {
+                        return v[2] < other.v[2];
+                    } else {
+                        return false;
+                    }
+                } else {
+                    return false;
+                }
+            }
+        };
+
     }
 
     /**
@@ -655,4 +707,61 @@ namespace MeshSimplification {
         return true;
     }
 
+    bool remove_duplicate_faces(const AttributeMatrix &vertices, const IndexMatrix &faces,
+                                AttributeMatrix &out_vertices, IndexMatrix &out_faces) {
+        if (faces.cols() != 3 || faces.rows() == 0) {
+            return false;
+        }
+
+        std::set<__inner__::Face> ret_faces;
+        std::vector<std::size_t> vec_faces;
+
+        for (std::size_t r = 0; r < faces.rows(); r++) {
+            const __inner__::Face f = __inner__::Face(faces(r, 0), faces(r, 1), faces(r, 2));
+            if (ret_faces.find(f) == ret_faces.end()) {
+                ret_faces.insert(f);
+                for (int c = 0; c < 3; c++) {
+                    vec_faces.push_back(faces(r, c));
+                }
+            }
+        }
+
+        out_vertices = vertices;
+        out_faces.resize(vec_faces.size() / 3, 3);
+        for (std::size_t r = 0; r < vec_faces.size() / 3; r++) {
+            for (int c = 0; c < 3; c++) {
+                out_faces(r, c) = vec_faces[r * 3 + c];
+            }
+        }
+
+        return true;
+    }
+
+    bool remove_duplicate_faces(AttributeMatrix &vertices, IndexMatrix &faces) {
+        if (faces.cols() != 3 || faces.rows() == 0) {
+            return false;
+        }
+
+        std::set<__inner__::Face> ret_faces;
+        std::vector<std::size_t> vec_faces;
+
+        for (std::size_t r = 0; r < faces.rows(); r++) {
+            const __inner__::Face f = __inner__::Face(faces(r, 0), faces(r, 1), faces(r, 2));
+            if (ret_faces.find(f) == ret_faces.end()) {
+                ret_faces.insert(f);
+                for (int c = 0; c < 3; c++) {
+                    vec_faces.push_back(faces(r, c));
+                }
+            }
+        }
+
+        faces.resize(vec_faces.size() / 3, 3);
+        for (std::size_t r = 0; r < vec_faces.size() / 3; r++) {
+            for (int c = 0; c < 3; c++) {
+                faces(r, c) = vec_faces[r * 3 + c];
+            }
+        }
+
+        return true;
+    }
 }

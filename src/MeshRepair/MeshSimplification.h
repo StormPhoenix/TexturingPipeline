@@ -71,6 +71,11 @@ namespace MeshSimplification {
                                std::vector<TexturePatch::Ptr> *ret_sparse_mesh_texture_patches,
                                std::size_t padding_pixels = 10,
                                std::size_t plane_density = 300);
+
+    bool remove_duplicate_faces(const AttributeMatrix &vertices, const IndexMatrix &faces,
+                                AttributeMatrix &out_vertices, IndexMatrix &out_faces);
+
+    bool remove_duplicate_faces(AttributeMatrix &vertices, IndexMatrix &faces);
 }
 
 #endif //TEXTURINGPIPELINE_MESHSIMPLIFICATION_H

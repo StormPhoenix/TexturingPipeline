@@ -8,6 +8,7 @@
 
 #include <IO/IO.h>
 #include <MeshSubdivision.h>
+#include <MeshSimplification.h>
 
 namespace bpo = boost::program_options;
 
@@ -28,15 +29,22 @@ int main(int argc, char **argv) {
     std::vector<std::string> face_materials;
     std::map<std::string, std::string> material_map;
 //    MvsTexturing::IO::load_mesh_from_obj(in_mesh_path, V, N, T, F, FN, FT, face_materials, material_map);
-    MvsTexturing::IO::load_mesh_from_ply(in_mesh_path, V, F);
+    {
+        MvsTexturing::IO::load_mesh_from_ply(in_mesh_path, V, F);
+
+        std::size_t origin_faces = F.rows();
+        MeshSimplification::remove_duplicate_faces(V, F);
+        std::size_t removed_faces = F.rows();
+        std::cout << "remove duplicated faces : " << origin_faces - removed_faces << std::endl;
+    }
 
     MeshSubdivision::AttributeMatrix out_V;
     MeshSubdivision::IndexMatrix out_F;
 
-    std::cout << "MakeDense origin model - faces: " << V.rows() << " vertices: " << F.rows() << std::endl;
+    std::cout << "MakeDense origin model - faces: " << F.rows() << " vertices: " << V.rows() << std::endl;
     MeshSubdivision::AttributeMatrix FC, out_FC;
     MeshSubdivision::make_mesh_dense(V, F, out_V, out_F, FC, out_FC);
-    std::cout << "MakeDense result model - faces: " << out_V.rows() << " vertices: " << out_F.rows() << std::endl;
+    std::cout << "MakeDense result model - faces: " << out_F.rows() << " vertices: " << out_V.rows() << std::endl;
 
     if (!MvsTexturing::IO::save_ply_mesh(out_mesh_path, out_V, out_F)) {
         std::cout << "Densed ply save test case failed. \n";

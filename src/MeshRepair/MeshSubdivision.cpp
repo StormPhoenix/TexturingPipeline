@@ -278,6 +278,7 @@ namespace MeshSubdivision {
                 vertices[i] = __inner__::Point(V(i, 0), V(i, 1), V(i, 2));
             }
 
+            // init vars: ef_adjacency and edge_id_map
             faces.resize(F.rows());
             for (int r = 0; r < F.rows(); r++) {
                 std::size_t f_color[4] = {std::size_t(out_FC(r, 0)), std::size_t(out_FC(r, 1)),
@@ -333,6 +334,7 @@ namespace MeshSubdivision {
             int n_adj_face = ef_adjacency[split_edge_id].faces.size();
             for (int i = 0; i < n_adj_face; i++) {
                 {
+                    // get opposite vertex id
                     std::size_t f_id = ef_adjacency[split_edge_id].faces[i];
                     std::size_t opposite_vertex_id;
                     if (!faces[f_id].opposite_vertex(split_edge, opposite_vertex_id)) {
@@ -398,7 +400,7 @@ namespace MeshSubdivision {
                 ef_adjacency[split_edge_id].replace_faces(seg1_adjacency_faces);
                 std::map<__inner__::Edge, std::size_t>::iterator it = edge_id_map.find(split_edge);
                 if (it == edge_id_map.end()) {
-                    throw std::runtime_error("splite edge not exist. ");
+                    throw std::runtime_error("split edge not exist. ");
                 }
                 edge_id_map.erase(it);
                 edge_id_map[seg1] = split_edge_id;
