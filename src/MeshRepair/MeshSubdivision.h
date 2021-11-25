@@ -14,7 +14,7 @@ namespace MeshSubdivision {
 
     bool make_mesh_dense(const AttributeMatrix &V, const IndexMatrix &F,
                          AttributeMatrix &out_V, IndexMatrix &out_F, AttributeMatrix &out_FC,
-                         AttributeMatrix &out_dense_FC);
+                         AttributeMatrix &out_dense_FC, const std::size_t kMaxFaces = 800000);
 }
 
 #endif //TEXTURINGPIPELINE_MESHSUBDIVISION_H

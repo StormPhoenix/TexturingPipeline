@@ -230,10 +230,14 @@ namespace MeshSubdivision {
         };
     }
 
-    bool stop_criteria(std::vector<__inner__::Face> &faces, std::vector<__inner__::EdgeLen> &edge_heap) {
+    bool stop_criteria(std::vector<__inner__::Face> &faces, std::vector<__inner__::EdgeLen> &edge_heap,
+                       const std::size_t kMaxFaces) {
+        if (faces.size() > kMaxFaces) {
+            return true;
+        }
         // TODO 加密程度
 //        const double Length_Threshold = 0.09;
-        const double Length_Threshold = 0.02;
+        const double Length_Threshold = 0.03;
         if (edge_heap[0].len < Length_Threshold) {
             return true;
         }
@@ -242,7 +246,8 @@ namespace MeshSubdivision {
 
     bool make_mesh_dense(const AttributeMatrix &V, const IndexMatrix &F,
                          AttributeMatrix &out_V, IndexMatrix &out_F,
-                         AttributeMatrix &out_FC, AttributeMatrix &out_dense_FC) {
+                         AttributeMatrix &out_FC, AttributeMatrix &out_dense_FC,
+                         const std::size_t kMaxFaces) {
         std::vector<__inner__::Face> faces;
         std::vector<__inner__::Point> vertices;
         std::map<__inner__::Edge, std::size_t> edge_id_map;
@@ -311,7 +316,7 @@ namespace MeshSubdivision {
         }
 
         // split mesh
-        while (!stop_criteria(faces, edge_len_heap)) {
+        while (!stop_criteria(faces, edge_len_heap, kMaxFaces)) {
             std::size_t split_edge_id = edge_len_heap[0].edge_idx;
             std::pop_heap(edge_len_heap.begin(), edge_len_heap.end(), __inner__::edge_len_cmp);
 
