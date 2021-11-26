@@ -8,6 +8,9 @@
 #include <Base/TexturePatch.h>
 #include <Eigen/Core>
 
+#include <igl/parallel_for.h>
+#include <igl/fit_plane.h>
+
 #include "MeshSimplification.h"
 
 namespace MeshSimplification {
@@ -122,7 +125,7 @@ namespace MeshSimplification {
             bool d_init = false;
 
             // init sparse texture coords
-            const std::size_t n_group_faces = face_group.m_faces.size();
+            const std::size_t n_group_faces = face_group.m_face_indices.size();
             std::vector<math::Vec2f> sparse_mesh_texture_coords;
             sparse_mesh_texture_coords.resize(n_group_faces * 3);
 
@@ -131,7 +134,7 @@ namespace MeshSimplification {
             std::vector<std::size_t> dense_mesh_face_ids;
 
             for (int f_i = 0; f_i < n_group_faces; f_i++) {
-                const std::size_t sparse_face_idx = face_group.m_faces[f_i];
+                const std::size_t sparse_face_idx = face_group.m_face_indices[f_i];
                 AttributeMatrix sparse_points3 = sparse_mesh.m_vertices(sparse_mesh.m_faces.row(sparse_face_idx),
                                                                         Eigen::all);
 
@@ -385,8 +388,8 @@ namespace MeshSimplification {
 
             // Create texture patch
             MvsTexturing::Base::TexturePatch::Ptr patch =
-                    MvsTexturing::Base::TexturePatch::create(0, face_group.m_faces, sparse_mesh_texture_coords,
-                                                             patch_image);
+                    MvsTexturing::Base::TexturePatch::create(0, face_group.m_face_indices,
+                                                             sparse_mesh_texture_coords, patch_image);
             sparse_texture_patches->push_back(patch);
         }
 
@@ -442,7 +445,7 @@ namespace MeshSimplification {
             bool d_init = false;
 
             // init sparse texture coords
-            const std::size_t n_group_faces = face_group.m_faces.size();
+            const std::size_t n_group_faces = face_group.m_face_indices.size();
             std::vector<math::Vec2f> sparse_mesh_texture_coords;
             sparse_mesh_texture_coords.resize(n_group_faces * 3);
 
@@ -451,7 +454,7 @@ namespace MeshSimplification {
             std::vector<std::size_t> dense_mesh_face_ids;
 
             for (int f_i = 0; f_i < n_group_faces; f_i++) {
-                const std::size_t sparse_face_idx = face_group.m_faces[f_i];
+                const std::size_t sparse_face_idx = face_group.m_face_indices[f_i];
                 AttributeMatrix sparse_points3 = sparse_mesh_vertices(sparse_mesh_faces.row(sparse_face_idx),
                                                                       Eigen::all);
 
@@ -692,7 +695,7 @@ namespace MeshSimplification {
 
             // Create texture patch
             MvsTexturing::Base::TexturePatch::Ptr patch =
-                    MvsTexturing::Base::TexturePatch::create(0, face_group.m_faces, sparse_mesh_texture_coords,
+                    MvsTexturing::Base::TexturePatch::create(0, face_group.m_face_indices, sparse_mesh_texture_coords,
                                                              patch_image);
             ret_sparse_mesh_texture_patches->push_back(patch);
         }
@@ -707,58 +710,94 @@ namespace MeshSimplification {
         return true;
     }
 
-    bool remove_duplicate_faces(const AttributeMatrix &vertices, const IndexMatrix &faces,
-                                AttributeMatrix &out_vertices, IndexMatrix &out_faces) {
-        if (faces.cols() != 3 || faces.rows() == 0) {
+    bool fit_face_group_plane(const AttributeMatrix &vertices, const IndexMatrix &faces,
+                              FaceGroup &group) {
+        if (group.m_face_indices.size() == 0) {
             return false;
         }
 
-        std::set<__inner__::Face> ret_faces;
-        std::vector<std::size_t> vec_faces;
-
-        for (std::size_t r = 0; r < faces.rows(); r++) {
-            const __inner__::Face f = __inner__::Face(faces(r, 0), faces(r, 1), faces(r, 2));
-            if (ret_faces.find(f) == ret_faces.end()) {
-                ret_faces.insert(f);
-                for (int c = 0; c < 3; c++) {
-                    vec_faces.push_back(faces(r, c));
-                }
-            }
+        AttributeMatrix points(group.m_face_indices.size() * 3, 3);
+        for (std::size_t i = 0; i < group.m_face_indices.size(); i++) {
+            std::size_t face_index = group.m_face_indices[i];
+            points.block<3, 3>(i * 3, 0) = vertices(faces.row(face_index), Eigen::all);
         }
 
-        out_vertices = vertices;
-        out_faces.resize(vec_faces.size() / 3, 3);
-        for (std::size_t r = 0; r < vec_faces.size() / 3; r++) {
-            for (int c = 0; c < 3; c++) {
-                out_faces(r, c) = vec_faces[r * 3 + c];
+        Vec3 N, C;
+        igl::fit_plane(points, N, C);
+
+        group.m_plane_center = C;
+        group.m_plane_normal = N;
+
+        Scalar d = -group.m_plane_normal.dot(group.m_plane_center);
+        Vec3 p = -d * group.m_plane_normal;
+        if ((p - group.m_plane_center).norm() < 1e-5) {
+            //p is too close to origin
+            p.setZero();
+            if (group.m_plane_normal[0] != 0) {
+                p[0] = -d / group.m_plane_normal[0];
+            } else if (group.m_plane_normal[1] != 0) {
+                p[1] = -d / group.m_plane_normal[1];
+            } else {
+                p[2] = -d / group.m_plane_normal[2];
             }
         }
+        group.m_x_axis = (p - group.m_plane_center).normalized();
+        group.m_y_axis = (group.m_plane_normal.cross(group.m_x_axis)).normalized();
+
 
         return true;
     }
 
-    bool remove_duplicate_faces(AttributeMatrix &vertices, IndexMatrix &faces) {
+    bool remove_duplicate_faces(IndexMatrix &faces) {
+        AttributeMatrix face_colors;
+        return remove_duplicate_faces(faces, face_colors);
+    }
+
+    bool remove_duplicate_faces(IndexMatrix &faces, AttributeMatrix &face_colors) {
         if (faces.cols() != 3 || faces.rows() == 0) {
             return false;
         }
 
-        std::set<__inner__::Face> ret_faces;
-        std::vector<std::size_t> vec_faces;
+        bool process_face_colors = true;
+        if (face_colors.rows() != faces.rows()) {
+            process_face_colors = false;
+        }
+        std::size_t color_channels = face_colors.cols();
+
+        std::set<__inner__::Face> unique_face_set;
+        std::vector<std::size_t> tmp_faces;
+        std::vector<double> tmp_face_colors;
 
         for (std::size_t r = 0; r < faces.rows(); r++) {
             const __inner__::Face f = __inner__::Face(faces(r, 0), faces(r, 1), faces(r, 2));
-            if (ret_faces.find(f) == ret_faces.end()) {
-                ret_faces.insert(f);
+            if (unique_face_set.find(f) == unique_face_set.end()) {
+                unique_face_set.insert(f);
                 for (int c = 0; c < 3; c++) {
-                    vec_faces.push_back(faces(r, c));
+                    tmp_faces.push_back(faces(r, c));
+                }
+
+                if (process_face_colors) {
+                    for (int c = 0; c < color_channels; c++) {
+                        tmp_face_colors.push_back(face_colors(r, c));
+                    }
                 }
             }
         }
 
-        faces.resize(vec_faces.size() / 3, 3);
-        for (std::size_t r = 0; r < vec_faces.size() / 3; r++) {
+        faces.resize(tmp_faces.size() / 3, 3);
+        if (process_face_colors) {
+            face_colors.resize(tmp_face_colors.size() / color_channels, color_channels);
+        }
+
+        for (std::size_t r = 0; r < tmp_faces.size() / 3; r++) {
             for (int c = 0; c < 3; c++) {
-                faces(r, c) = vec_faces[r * 3 + c];
+                faces(r, c) = tmp_faces[r * 3 + c];
+            }
+
+            if (process_face_colors) {
+                for (int c = 0; c < color_channels; c++) {
+                    face_colors(r, c) = tmp_face_colors[r * color_channels + c];
+                }
             }
         }
 

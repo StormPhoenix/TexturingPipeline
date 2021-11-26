@@ -370,7 +370,7 @@ namespace MvsTexturing {
             return fileBufferBytes;
         }
 
-        bool load_mesh_from_ply(const std::string &filename, AttributeMatrix &V, IndexMatrix &F) {
+        bool load_mesh_from_ply(const std::string &filename, AttributeMatrix &V, IndexMatrix &F, AttributeMatrix &FC) {
             using namespace tinyply;
             struct float2 {
                 float x, y;
@@ -418,15 +418,18 @@ namespace MvsTexturing {
                 PlyFile file;
                 file.parse_header(*file_stream);
 
-                std::shared_ptr<PlyData> vertices, colors, faces;
+                std::shared_ptr<PlyData> vertices, vertex_colors, faces, face_colors;
                 try { vertices = file.request_properties_from_element("vertex", {"x", "y", "z"}); }
                 catch (const std::exception &e) { std::cerr << "tinyply exception: " << e.what() << std::endl; }
 
 
-                try { colors = file.request_properties_from_element("vertex", {"red", "green", "blue"}); }
+                try { vertex_colors = file.request_properties_from_element("vertex", {"red", "green", "blue"}); }
                 catch (const std::exception &e) { std::cerr << "tinyply exception: " << e.what() << std::endl; }
 
                 try { faces = file.request_properties_from_element("face", {"vertex_indices"}, 3); }
+                catch (const std::exception &e) { std::cerr << "tinyply exception: " << e.what() << std::endl; }
+
+                try { face_colors = file.request_properties_from_element("face", {"red", "green", "blue"}); }
                 catch (const std::exception &e) { std::cerr << "tinyply exception: " << e.what() << std::endl; }
 
                 file.read(*file_stream);
@@ -441,7 +444,8 @@ namespace MvsTexturing {
                     V = eigen_vertices.cast<Scalar>();
                 }
                 //read vertex colors if exists
-                if (colors.get() != nullptr && colors->count > 0 && colors->t == tinyply::Type::UINT8) {
+                if (vertex_colors.get() != nullptr && vertex_colors->count > 0 &&
+                    vertex_colors->t == tinyply::Type::UINT8) {
                     /* TODO ignored
                     std::vector<uchar3> vertex_colors(colors->count);
                     memcpy(vertex_colors.data(), colors->buffer.get(), colors->buffer.size_bytes());
@@ -453,9 +457,22 @@ namespace MvsTexturing {
                     }
                      */
                 }
+
                 //read triangles
                 F.resize(faces->count, 3);
                 memcpy(F.data(), faces->buffer.get(), faces->buffer.size_bytes());
+
+                // read face colors if exists
+                if (face_colors.get() != nullptr && face_colors->count > 0 &&
+                    face_colors->t == tinyply::Type::UINT8) {
+                    std::vector<uchar3> tmp_face_colors(face_colors->count);
+                    memcpy(tmp_face_colors.data(), face_colors->buffer.get(), face_colors->buffer.size_bytes());
+                    FC.resize(face_colors->count, 3);
+                    int r = 0;
+                    for (const uchar3 &c : tmp_face_colors) {
+                        FC.row(r++) = Eigen::RowVector3d((double) c.r, (double) c.g, (double) c.b);
+                    }
+                }
             } catch (const std::exception &e) {
                 std::cerr << "Caught tinyply exception: " << e.what() << std::endl;
                 return false;
@@ -464,6 +481,11 @@ namespace MvsTexturing {
                 return false;
             }
             return true;
+        }
+
+        bool load_mesh_from_ply(const std::string &filename, AttributeMatrix &vertices, IndexMatrix &faces) {
+            AttributeMatrix face_colors;
+            return load_mesh_from_ply(filename, vertices, faces, face_colors);
         }
 
         bool save_ply_mesh(const std::string &file_name, const Eigen::MatrixXd &V, const Eigen::MatrixXi &F) {

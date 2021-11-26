@@ -24,12 +24,13 @@ int main(int argc, char *argv[]) {
             ("help", "produce help message")
             ("input_mesh", bpo::value<std::string>()->default_value("semantic_mesh.ply"), "path of input dense mesh")
             ("output_mesh", bpo::value<std::string>()->default_value("res.ply"), "path of output simplified mesh")
-            ("planar_score", bpo::value<double>()->default_value(0.3),
-             "minimal planar score of face during plane estimation, default 0.8")
-            ("angle", bpo::value<double>()->default_value(30.0),
-             "maximal angle in degree that plane segment should accept face, default 15.0")
-            ("ratio", bpo::value<double>()->default_value(20.0),
-             "maximal distance ratio that plane segment should accept face, default 10.0")
+//            ("planar_score", bpo::value<double>()->default_value(0.3),
+            ("planar_score", bpo::value<double>()->default_value(0.97),
+             "minimal planar score of face during plane estimation, default 0.97")
+            ("angle", bpo::value<double>()->default_value(10.0),
+             "maximal angle in degree that plane segment should accept face, default 10.0")
+            ("ratio", bpo::value<double>()->default_value(5.0),
+             "maximal distance ratio that plane segment should accept face, default 5.0")
             ("plane_size", bpo::value<int>()->default_value(10),
              "minimal number of facets in plane segment, default 10");
 

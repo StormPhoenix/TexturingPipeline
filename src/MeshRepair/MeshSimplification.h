@@ -33,9 +33,11 @@ namespace MeshSimplification {
 
     class FaceGroup {
     public:
-        std::vector<std::size_t> m_faces;
+        std::vector<std::size_t> m_face_indices;
         Vec3 m_plane_normal, m_plane_center;
         Vec3 m_x_axis, m_y_axis;
+
+        explicit FaceGroup() {}
     };
 
     typedef MvsTexturing::Base::TexturePatch::Ptr TexturePatchPtr;
@@ -72,10 +74,12 @@ namespace MeshSimplification {
                                std::size_t padding_pixels = 10,
                                std::size_t plane_density = 300);
 
-    bool remove_duplicate_faces(const AttributeMatrix &vertices, const IndexMatrix &faces,
-                                AttributeMatrix &out_vertices, IndexMatrix &out_faces);
+    bool fit_face_group_plane(const AttributeMatrix &vertices, const IndexMatrix &faces,
+                              FaceGroup &group);
 
-    bool remove_duplicate_faces(AttributeMatrix &vertices, IndexMatrix &faces);
+    bool remove_duplicate_faces(IndexMatrix &faces);
+
+    bool remove_duplicate_faces(IndexMatrix &faces, AttributeMatrix &face_colors);
 }
 
 #endif //TEXTURINGPIPELINE_MESHSIMPLIFICATION_H

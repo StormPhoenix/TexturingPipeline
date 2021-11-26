@@ -13,7 +13,8 @@ add_library(${MeshRepair} STATIC ${SOURCES})
 set_property(TARGET ${MeshRepair} PROPERTY INTERPROCEDURAL_OPTIMIZATION True)
 target_include_directories(${MeshRepair} PRIVATE
         ${EIGEN3_INCLUDE_DIR}
-        ${MVE_INCLUDE_DIR})
+        ${MVE_INCLUDE_DIR}
+        ${LIBIGL_INCLUDE_DIR})
 
 target_link_directories(${MeshRepair} PRIVATE
         MvsTexturing-Library)

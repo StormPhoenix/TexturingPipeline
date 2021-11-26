@@ -35,6 +35,8 @@ namespace MvsTexturing {
 
         bool load_mesh_from_ply(const std::string &filename, AttributeMatrix &V, IndexMatrix &F);
 
+        bool load_mesh_from_ply(const std::string &filename, AttributeMatrix &V, IndexMatrix &F, AttributeMatrix &FC);
+
         bool save_ply_mesh(const std::string &file_name, const Eigen::MatrixXd &V, const Eigen::MatrixXi &F);
 
         bool save_ply_mesh(const std::string &file_name, const Eigen::MatrixXd &V, const Eigen::MatrixXi &F,
