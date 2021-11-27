@@ -49,7 +49,7 @@ namespace MeshSimplification {
                                const FacesSubdivisions &faces_subdivision,
                                const FaceGroups &sparse_mesh_face_groups,
                                TexturePatchArray *sparse_texture_patches,
-                               std::size_t padding_pixels = 10,
+                               std::size_t padding_pixels = 5,
                                const std::size_t plane_density = 300);
 
 
@@ -64,7 +64,7 @@ namespace MeshSimplification {
 
                                const FacesSubdivisions &faces_subdivision,
                                std::vector<TexturePatch::Ptr> *final_texture_patches,
-                               std::size_t padding_pixels = 10,
+                               std::size_t padding_pixels = 5,
                                std::size_t plane_density = 300);
 
     bool fit_face_group_plane(const AttributeMatrix &vertices, const IndexMatrix &faces,

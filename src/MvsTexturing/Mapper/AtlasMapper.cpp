@@ -29,7 +29,7 @@ namespace MvsTexturing {
 
 #define MAX_TEXTURE_SIZE (8 * 1024)
 #define PREF_TEXTURE_SIZE (4 * 1024)
-#define MIN_TEXTURE_SIZE (256)
+#define MIN_TEXTURE_SIZE (4 * 1024)
 
         template<typename T>
         T clamp_nan_low(T const &v, T const &lo, T const &hi) {
@@ -631,10 +631,10 @@ namespace MvsTexturing {
         }
 
         /**
-  * Heuristic to calculate an appropriate texture atlas size.
-  * @warning asserts that no texture patch exceeds the dimensions
-  * of the maximal possible texture atlas size.
-  */
+        * Heuristic to calculate an appropriate texture atlas size.
+        * @warning asserts that no texture patch exceeds the dimensions
+        * of the maximal possible texture atlas size.
+        */
         unsigned int calculate_texture_size(const std::list<Base::TexturePatch::ConstPtr> &texture_patches) {
             unsigned int size = MAX_TEXTURE_SIZE;
 
@@ -642,7 +642,8 @@ namespace MvsTexturing {
                 unsigned int total_area = 0;
                 unsigned int max_width = 0;
                 unsigned int max_height = 0;
-                unsigned int padding = size >> 7;
+//                unsigned int padding = size >> 7;
+                unsigned int padding = 4;
 
                 for (Base::TexturePatch::ConstPtr texture_patch : texture_patches) {
                     unsigned int width = texture_patch->get_width() + 2 * padding;
@@ -669,10 +670,11 @@ namespace MvsTexturing {
                 if (size > PREF_TEXTURE_SIZE &&
                     max_width < PREF_TEXTURE_SIZE &&
                     max_height < PREF_TEXTURE_SIZE &&
-                    total_area / (PREF_TEXTURE_SIZE * PREF_TEXTURE_SIZE) < 8) {
+                    total_area / (PREF_TEXTURE_SIZE * PREF_TEXTURE_SIZE) < 0.5) {
                     size = PREF_TEXTURE_SIZE;
                     continue;
                 }
+
 
                 if (size <= MIN_TEXTURE_SIZE) {
                     return MIN_TEXTURE_SIZE;
