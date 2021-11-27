@@ -239,9 +239,6 @@ namespace MeshSimplification {
                 patch_mask->fill(0);
 
                 for (std::size_t i = 0; i < dense_mesh_texture_coords.size(); i += 3) {
-                    // TODO delete
-                    // 代码不好写，之前 texture coords 数组的顺序和 group.m_indices 是有绑定关系的
-                    // 而 dense model 的纹理和 dense_texture_coord 的绑定关系消失。
                     std::size_t sub_f_i = i / 3;
                     std::size_t sub_f_idx = dense_mesh_face_ids[sub_f_i];
 
@@ -413,7 +410,7 @@ namespace MeshSimplification {
                                const std::vector<FloatImageConstPtr> &dense_mesh_face_materials,
 
                                const FacesSubdivisions &faces_subdivision,
-                               std::vector<TexturePatch::Ptr> *ret_sparse_mesh_texture_patches,
+                               std::vector<TexturePatch::Ptr> *final_texture_patches,
                                std::size_t padding_pixels,
                                std::size_t plane_density) {
         padding_pixels = std::max(padding_pixels, std::size_t(2));
@@ -428,7 +425,7 @@ namespace MeshSimplification {
             return false;
         }
 
-        if (ret_sparse_mesh_texture_patches == nullptr) {
+        if (final_texture_patches == nullptr) {
             // dense mesh error
             return false;
         }
@@ -559,9 +556,6 @@ namespace MeshSimplification {
                 patch_mask->fill(0);
 
                 for (std::size_t i = 0; i < dense_mesh_texture_coords.size(); i += 3) {
-                    // TODO delete
-                    // 代码不好写，之前 texture coords 数组的顺序和 group.m_indices 是有绑定关系的
-                    // 而 dense model 的纹理和 dense_texture_coord 的绑定关系消失。
                     std::size_t sub_f_i = i / 3;
                     std::size_t sub_f_idx = dense_mesh_face_ids[sub_f_i];
 
@@ -697,12 +691,13 @@ namespace MeshSimplification {
             MvsTexturing::Base::TexturePatch::Ptr patch =
                     MvsTexturing::Base::TexturePatch::create(0, face_group.m_face_indices, sparse_mesh_texture_coords,
                                                              patch_image);
-            ret_sparse_mesh_texture_patches->push_back(patch);
+
+            final_texture_patches->push_back(patch);
         }
 
 #pragma omp parallel for schedule(dynamic)
-        for (std::size_t i = 0; i < ret_sparse_mesh_texture_patches->size(); ++i) {
-            MvsTexturing::Base::TexturePatch::Ptr texture_patch = ret_sparse_mesh_texture_patches->operator[](i);
+        for (std::size_t i = 0; i < final_texture_patches->size(); ++i) {
+            MvsTexturing::Base::TexturePatch::Ptr texture_patch = final_texture_patches->operator[](i);
             std::vector<math::Vec3f> patch_adjust_values(texture_patch->get_faces().size() * 3, math::Vec3f(0.0f));
             texture_patch->adjust_colors(patch_adjust_values);
         }

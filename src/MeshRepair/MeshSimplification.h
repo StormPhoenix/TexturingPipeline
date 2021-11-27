@@ -70,7 +70,7 @@ namespace MeshSimplification {
                                const std::vector<FloatImageConstPtr> &dense_mesh_face_materials,
 
                                const FacesSubdivisions &faces_subdivision,
-                               std::vector<TexturePatch::Ptr> *ret_sparse_mesh_texture_patches,
+                               std::vector<TexturePatch::Ptr> *final_texture_patches,
                                std::size_t padding_pixels = 10,
                                std::size_t plane_density = 300);
 

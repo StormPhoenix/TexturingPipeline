@@ -156,6 +156,8 @@ int main(int argc, char **argv) {
             {
                 // detect planes and init face group
                 if (origin_mesh.m_has_face_color) {
+                    std::cout << "\tusing precomputed face group ... ";
+                    IO_timer.reset();
                     // if face color exists, the plane groups have been computed
                     std::map<__inner__::Color, std::size_t> group_id_map;
 
@@ -167,12 +169,12 @@ int main(int argc, char **argv) {
                         if (color.m_r == 0 &&
                             color.m_g == 0 &&
                             color.m_b == 0) {
-                            // TODO
                             continue;
                         }
 
                         if (group_id_map.find(color) == group_id_map.end()) {
                             planar_groups.push_back(FaceGroup());
+                            planar_groups.back().m_face_indices.push_back(r);
                             group_id_map[color] = planar_groups.size() - 1;
                         } else {
                             planar_groups[group_id_map[color]].m_face_indices.push_back(r);
@@ -182,7 +184,11 @@ int main(int argc, char **argv) {
                     for (FaceGroup &group : planar_groups) {
                         MeshSimplification::fit_face_group_plane(origin_mesh.m_vertices, origin_mesh.m_faces, group);
                     }
+                    std::cout << "done. (Took: " << IO_timer.get_elapsed() << " ms)\n";
                 } else {
+                    std::cout << "\tcomputing face group ... ";
+                    IO_timer.reset();
+
                     TriMesh sparse_tri_mesh;
                     MvsTexturing::Utils::eigenMesh_to_TriMesh(origin_mesh.m_vertices, origin_mesh.m_faces,
                                                               sparse_tri_mesh);
@@ -216,6 +222,7 @@ int main(int argc, char **argv) {
                         dest_group.m_x_axis = group.m_x_axis;
                         dest_group.m_y_axis = group.m_y_axis;
                     }
+                    std::cout << "done. (Took: " << IO_timer.get_elapsed() << " ms)\n";
                 }
             }
 
@@ -482,6 +489,7 @@ bool map_textures(MeshPtr input_mesh, MeshInfo &mesh_info, TextureViews &texture
         if (param.sparse_model) {
             std::vector<TexturePatch::Ptr> final_texture_patches;
             std::cout << "\tretrieve sparse model texture from dense model ... ";
+
             dense_texture_to_sparse(origin_mesh, dense_mesh, texture_patches, param, planar_groups,
                                     &final_texture_patches);
             texture_patches.swap(final_texture_patches);
@@ -508,9 +516,6 @@ bool map_textures(MeshPtr input_mesh, MeshInfo &mesh_info, TextureViews &texture
             MvsTexturing::IO::MVE::save_obj_mesh(param.output_prefix, input_mesh, texture_atlases);
         } else {
             input_mesh = MvsTexturing::Utils::eigenMesh_to_mveMesh(origin_mesh.m_vertices, origin_mesh.m_faces);
-            MvsTexturing::IO::save_ply_mesh(
-                    MvsTexturing::Utils::str_prefix(param.output_prefix) + "_Debug_dense_final.ply",
-                    origin_mesh.m_vertices, origin_mesh.m_faces);
             MvsTexturing::IO::MVE::save_obj_mesh(param.output_prefix, input_mesh, texture_atlases);
         }
         std::cout << " done. (Took: " << timer.get_elapsed_sec() << "s)" << std::endl;
