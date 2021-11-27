@@ -10,6 +10,7 @@
 
 #include <MvsTexturing.h>
 #include <Base/View.h>
+#include <Base/FaceGroup.h>
 #include <Base/SparseTable.h>
 
 #include <set>
@@ -17,11 +18,20 @@
 
 namespace MvsTexturing {
     namespace ViewSelection {
+
         namespace Projection {
-            void solve_projection_problem(mve::TriangleMesh::ConstPtr mesh,
-                                          const mve::MeshInfo &mesh_info,
+            using namespace Base;
+
+            void solve_projection_problem(mve::TriangleMesh::ConstPtr mesh, const mve::MeshInfo &mesh_info,
                                           const acc::BVHTree<unsigned int, math::Vec3f> &bvh_tree,
+                                          const std::vector<Base::FaceGroup> &planar_groups,
                                           Base::LabelGraph &graph, std::vector<Base::TextureView> &texture_views,
+                                          const Parameter &param);
+
+            void solve_projection_problem(mve::TriangleMesh::ConstPtr mesh, const mve::MeshInfo &mesh_info,
+                                          const acc::BVHTree<unsigned int, math::Vec3f> &bvh_tree,
+                                          Base::LabelGraph &graph,
+                                          std::vector<Base::TextureView> &texture_views,
                                           const Parameter &param);
         }
 

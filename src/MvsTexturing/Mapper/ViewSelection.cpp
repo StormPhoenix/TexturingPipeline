@@ -21,6 +21,7 @@
 #include <PlaneEstimation/RegionExpand.h>
 
 #include "Base/View.h"
+#include "Base/FaceGroup.h"
 #include "Base/LabelGraph.h"
 #include "Base/SparseTable.h"
 #include "Mapper/FaceOutlierDetection.h"
@@ -252,12 +253,12 @@ namespace MvsTexturing {
             }
 
             void camera_project_to_plane(const MeshConstPtr mesh, const mve::MeshInfo &mesh_info,
-                                         const PlaneGroup &group, const FacesVisibility &f_visibility,
+                                         const FaceGroup &group, const FacesVisibility &f_visibility,
                                          const int select_camera_id, LabelGraph &graph, bool &is_last_camera) {
                 is_last_camera = true;
                 std::set<std::size_t> applied_face;
-                for (std::size_t i = 0; i < group.m_indices.size(); i++) {
-                    std::size_t face_id = group.m_indices[i];
+                for (std::size_t i = 0; i < group.m_face_indices.size(); i++) {
+                    std::size_t face_id = group.m_face_indices[i];
                     if (graph.get_label(face_id) == 0) {
                         // haven't set label
                         const std::set<__inner__::FaceQuality> &vis = f_visibility[face_id];
@@ -323,7 +324,7 @@ namespace MvsTexturing {
                 }
             }
 
-            void project_to_plane(const MeshConstPtr mesh, const mve::MeshInfo &mesh_info, const PlaneGroup &group,
+            void project_to_plane(const MeshConstPtr mesh, const mve::MeshInfo &mesh_info, const FaceGroup &group,
                                   const TextureViewList &texture_views, const FacesVisibility &faces_visibility,
                                   LabelGraph &graph) {
                 const int n_views = texture_views.size();
@@ -335,8 +336,8 @@ namespace MvsTexturing {
                     int overlap_count = 0;
                     bool is_full_overlap = true;
 
-                    for (std::size_t i = 0; i < group.m_indices.size(); i++) {
-                        long long face_id = group.m_indices[i];
+                    for (std::size_t i = 0; i < group.m_face_indices.size(); i++) {
+                        long long face_id = group.m_face_indices[i];
                         const std::set<__inner__::FaceQuality> &visibility = faces_visibility[face_id];
 
                         if (visibility.find(__inner__::FaceQuality(camera_id - 1)) != visibility.end()) {
@@ -348,7 +349,7 @@ namespace MvsTexturing {
                     }
 
                     if (overlap_count > 0) {
-                        double overlap_rate = double(overlap_count) / group.m_indices.size();
+                        double overlap_rate = double(overlap_count) / group.m_face_indices.size();
                         avg_cosine = avg_cosine / overlap_count;
 
                         double camera_score = avg_cosine * overlap_rate;
@@ -373,12 +374,14 @@ namespace MvsTexturing {
             }
 
             void solve_projection_problem(MeshConstPtr mesh, const mve::MeshInfo &mesh_info,
-                                          const BVHTree &bvh_tree, Base::LabelGraph &graph,
-                                          TextureViewList &texture_views, const Parameter &param) {
+                                          const BVHTree &bvh_tree, const std::vector<FaceGroup> &planar_groups,
+                                          Base::LabelGraph &graph, TextureViewList &texture_views,
+                                          const Parameter &param) {
                 // visibility detection
                 std::vector<std::set<__inner__::FaceQuality>> face_visibilities(mesh->get_faces().size() / 3);
                 calculate_face_visibility(mesh, bvh_tree, texture_views, param, face_visibilities);
 
+                /*
                 // region growing
                 TriMesh tri_mesh;
                 Utils::mveMesh_to_triMesh(mesh, tri_mesh);
@@ -405,6 +408,12 @@ namespace MvsTexturing {
 
                 for (std::size_t group_id = 0; group_id < tri_mesh.m_plane_groups.size(); group_id++) {
                     PlaneGroup &group = tri_mesh.m_plane_groups[group_id];
+                    project_to_plane(mesh, mesh_info, group, texture_views, face_visibilities, graph);
+                }
+                 */
+
+                for (std::size_t group_id = 0; group_id < planar_groups.size(); group_id++) {
+                    const FaceGroup &group = planar_groups[group_id];
                     project_to_plane(mesh, mesh_info, group, texture_views, face_visibilities, graph);
                 }
 
@@ -503,6 +512,45 @@ namespace MvsTexturing {
                         }
                     }
                 }
+            }
+
+            void solve_projection_problem(MeshConstPtr mesh, const mve::MeshInfo &mesh_info,
+                                          const BVHTree &bvh_tree, Base::LabelGraph &graph,
+                                          TextureViewList &texture_views,
+                                          const Parameter &param) {
+                // detect face groups
+                std::vector<FaceGroup> planar_groups;
+                {
+                    TriMesh tri_mesh;
+                    Utils::mveMesh_to_triMesh(mesh, tri_mesh);
+                    {
+                        using namespace MeshPolyRefinement;
+                        // detect planes on mesh using region-growing
+                        PlaneEstimation::region_growing_plane_estimate(tri_mesh, param.planar_score,
+                                                                       param.angle_threshold,
+                                                                       param.ratio_threshold, param.min_plane_size);
+
+                        // expand plane segment regions
+                        PlaneEstimation::plane_region_expand(tri_mesh, 50.0, 45.0);
+
+                        // filter small non-plane regions
+                        PlaneEstimation::plane_region_refine(tri_mesh);
+
+                        // merge parallel adjacent plane segments
+                        PlaneEstimation::plane_region_merge(tri_mesh);
+
+                        for (std::size_t group_id = 0; group_id < tri_mesh.m_plane_groups.size(); group_id++) {
+                            PlaneGroup &group = tri_mesh.m_plane_groups[group_id];
+                            planar_groups.push_back(FaceGroup());
+
+                            for (std::size_t f_index : group.m_indices) {
+                                planar_groups.back().m_face_indices.push_back(f_index);
+                            }
+                        }
+                    }
+                }
+
+                solve_projection_problem(mesh, mesh_info, bvh_tree, planar_groups, graph, texture_views, param);
             }
         }
 

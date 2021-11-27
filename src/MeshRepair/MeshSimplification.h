@@ -6,6 +6,7 @@
 #define TEXTURINGPIPELINE_MESHSIMPLIFICATION_H
 
 #include <mve/image.h>
+#include <Base/FaceGroup.h>
 
 namespace MeshSimplification {
 
@@ -16,6 +17,7 @@ namespace MeshSimplification {
     using Vec3 = Eigen::Matrix<Scalar, 1, 3>;
     using Vec2 = Eigen::Matrix<Scalar, 1, 2>;
     using Vec4 = Eigen::Matrix<Scalar, 1, 4>;
+    using FaceGroup = MvsTexturing::Base::FaceGroup;
 
     class Mesh {
     public:
@@ -29,15 +31,6 @@ namespace MeshSimplification {
         IndexMatrix m_face_texture_coord_ids;
 
         IndexMatrix m_face_material_ids;
-    };
-
-    class FaceGroup {
-    public:
-        std::vector<std::size_t> m_face_indices;
-        Vec3 m_plane_normal, m_plane_center;
-        Vec3 m_x_axis, m_y_axis;
-
-        explicit FaceGroup() {}
     };
 
     typedef MvsTexturing::Base::TexturePatch::Ptr TexturePatchPtr;
