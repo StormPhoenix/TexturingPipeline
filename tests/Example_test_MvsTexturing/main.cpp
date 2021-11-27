@@ -278,8 +278,6 @@ int main(int argc, char **argv) {
         std::cout << "(Took: " << IO_timer.get_elapsed_sec() << " s)" << std::endl;
     }
 
-    // TODO delete
-    param.sparse_model = false;
     if (!map_textures(input_mesh, mesh_info, texture_views, param, planar_groups, origin_mesh, dense_mesh)) {
         std::cout << "\nMvsTexturing failed. (Took: " << whole_timer.get_elapsed_sec() << " s)" << std::endl;
         return 0;
