@@ -2,6 +2,7 @@
 
 - 待解决问题
     - 引入 GCOptimizatin
+    - 用 elephant 做测试数据，投影结果非常怪异（发现检测得到的平面基本上弯曲度都比较大）
     
 - 稀疏网格纹理映射
     - MvsTexturing、MakeMeshDense 和 TextureRemeshing 已经写好，稀疏网格纹理映射就靠这三个库串起来即可。
@@ -58,3 +59,12 @@
     - Options: --scene_file ./visualSFM/nvm_anyuanmen.nvm --input_mesh ./Input/model_labeled.ply --output_prefix ./Output_TexturePipeline/Textured_model --mrf_call_lib mapmap --outlier_removal gauss_clamping --method_type projection --keep_unseen_faces true --skip_global_seam_leveling true --skip_local_seam_leveling true --skip_hole_filling true
     - Options: --scene_file ./visualSFM/nvm_anyuanmen.nvm --input_mesh ./Input/model_labeled_sim_2.ply --output_prefix ./Output_TexturePipeline/Textured_model --mrf_call_lib mapmap --outlier_removal gauss_clamping --method_type projection --keep_unseen_faces true --skip_hole_filling true
     - Options: --scene_file ./visualSFM/nvm_anyuanmen.nvm --input_mesh ./Input/debug.ply --output_prefix ./Output_TexturePipeline/debug_make_dense --mrf_call_lib openmvs --outlier_removal gauss_clamping --method_type mrf --keep_unseen_faces true --skip_hole_filling true
+    
+- M1
+    - WorkDirectory: /Users/stormphoenix/Workspace/Projects/CLionProjects/3dReconstruction/Dataset/M1
+    - Options: --scene_file ./visualSFM/M1.nvm --input_mesh ./input/model_0.ply --output_prefix ./Output_TexturePipeline/model_proj --mrf_call_lib mapmap --outlier_removal gauss_clamping --method_type projection --keep_unseen_faces true --skip_hole_filling true
+    
+- elephant
+    - WorkDirectory: /Users/stormphoenix/Workspace/Projects/CLionProjects/3dReconstruction/Dataset/elephant
+    - Options: --scene_file ./visualSFM/test.nvm --input_mesh ./Input/model_0.ply --output_prefix ./Output_TexturePipeline/model_proj --mrf_call_lib mapmap --outlier_removal gauss_clamping --method_type projection --keep_unseen_faces true --skip_hole_filling true
+            

@@ -31,6 +31,11 @@
 
 #include "MvsTexturing.h"
 
+#define Degree_15_Cosine 0.965925
+#define Degree_40_Cosine 0.766044
+#define Degree_60_Cosine 0.5
+#define Degree_75_Cosine 0.2588
+
 namespace MvsTexturing {
     namespace ViewSelection {
         typedef acc::BVHTree<unsigned int, math::Vec3f> BVHTree;
@@ -170,6 +175,7 @@ namespace MvsTexturing {
                 }
 
                 struct FaceQuality {
+                    // camera id, range in [0, camera_num - 1]
                     std::uint16_t view_id;
                     float quality = 0.0f;
                     double gauss_value = 0.0f;
@@ -373,8 +379,6 @@ namespace MvsTexturing {
                 std::vector<std::set<__inner__::FaceQuality>> face_visibilities(mesh->get_faces().size() / 3);
                 calculate_face_visibility(mesh, bvh_tree, texture_views, param, face_visibilities);
 
-                // TODO do not consider default projection case
-
                 // region growing
                 TriMesh tri_mesh;
                 Utils::mveMesh_to_triMesh(mesh, tri_mesh);
@@ -402,6 +406,102 @@ namespace MvsTexturing {
                 for (std::size_t group_id = 0; group_id < tri_mesh.m_plane_groups.size(); group_id++) {
                     PlaneGroup &group = tri_mesh.m_plane_groups[group_id];
                     project_to_plane(mesh, mesh_info, group, texture_views, face_visibilities, graph);
+                }
+
+                // consider default projection case
+                {
+                    // list all un-labeled face
+                    std::set<std::size_t> un_labeled_faces;
+                    for (std::size_t i = 0; i < graph.num_nodes(); i++) {
+                        if (graph.get_label(i) == 0) {
+                            un_labeled_faces.insert(i);
+                        }
+                    }
+
+                    {
+                        // set label from adjacent faces
+                        bool decreased = true;
+                        while (decreased) {
+                            decreased = false;
+                            for (auto it = un_labeled_faces.begin(); it != un_labeled_faces.end();) {
+                                // try to set label from adjacent labels
+                                std::size_t un_labeled_face_id = (*it);
+                                if (graph.get_label(un_labeled_face_id) != 0) {
+                                    it++;
+                                    continue;
+                                }
+
+                                const std::set<__inner__::FaceQuality> &face_camera_visibility = face_visibilities[un_labeled_face_id];
+                                bool is_labeled = false;
+                                std::size_t chosen_label = 0;
+                                double face_view_score = -1.0;
+
+                                const std::vector<std::size_t> &adj_faces = graph.get_adj_nodes(un_labeled_face_id);
+                                for (auto it_adj = adj_faces.begin(); it_adj != adj_faces.end(); it_adj++) {
+                                    const std::size_t adj_label = graph.get_label((*it_adj));
+                                    if (adj_label == 0) {
+                                        continue;
+                                    }
+
+                                    __inner__::FaceQuality adj_label_quality = __inner__::FaceQuality(adj_label - 1);
+                                    if (face_camera_visibility.find(adj_label_quality) ==
+                                        face_camera_visibility.end()) {
+                                        continue;
+                                    }
+
+                                    // calculate angle score
+                                    {
+                                        const Base::TextureView &texture_view = texture_views[adj_label - 1];
+                                        double cosine_angle = face_view_cos(un_labeled_face_id, texture_view, mesh);
+
+                                        if (face_view_score < Degree_15_Cosine) {
+                                            if (cosine_angle > 0 && cosine_angle > face_view_score) {
+                                                face_view_score = cosine_angle;
+                                                is_labeled = true;
+                                                chosen_label = adj_label;
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if (is_labeled) {
+                                    decreased = true;
+                                    graph.set_label(un_labeled_face_id, chosen_label);
+                                    un_labeled_faces.erase(it++);
+                                } else {
+                                    it++;
+                                }
+                            }
+                        }
+                    }
+
+                    {
+                        // set default label
+                        if (un_labeled_faces.size() > 0) {
+                            for (auto it = un_labeled_faces.begin(); it != un_labeled_faces.end(); it++) {
+                                std::size_t un_labeled_face_id = (*it);
+                                if (graph.get_label(un_labeled_face_id) != 0) {
+                                    continue;
+                                }
+
+                                double face_view_score = -1.0;
+                                std::size_t chosen_label = 0;
+                                const std::set<__inner__::FaceQuality> &face_camera_visibility = face_visibilities[un_labeled_face_id];
+                                for (std::set<__inner__::FaceQuality>::const_iterator it = face_camera_visibility.begin();
+                                     it != face_camera_visibility.end(); it++) {
+                                    const Base::TextureView &texture_view = texture_views[(*it).view_id];
+                                    double cosine_angle = face_view_cos(un_labeled_face_id, texture_view, mesh);
+
+                                    if (cosine_angle > 0 && cosine_angle > face_view_score) {
+                                        face_view_score = cosine_angle;
+                                        chosen_label = (*it).view_id + 1;
+                                    }
+
+                                    graph.set_label(un_labeled_face_id, chosen_label);
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
