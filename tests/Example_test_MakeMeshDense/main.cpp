@@ -33,7 +33,7 @@ int main(int argc, char **argv) {
         MvsTexturing::IO::load_mesh_from_ply(in_mesh_path, V, F);
 
         std::size_t origin_faces = F.rows();
-        MeshSimplification::remove_duplicate_faces(V, F);
+        MeshSimplification::remove_duplicate_faces(F);
         std::size_t removed_faces = F.rows();
         std::cout << "remove duplicated faces : " << origin_faces - removed_faces << std::endl;
     }
