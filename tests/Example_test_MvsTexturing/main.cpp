@@ -146,7 +146,6 @@ int main(int argc, char **argv) {
 
             {
                 // remove duplicated faces
-                // TODO Take color into consideration
                 std::size_t origin_faces = origin_mesh.m_faces.rows();
                 MeshSimplification::remove_duplicate_faces(origin_mesh.m_faces, origin_mesh.m_face_colors);
                 std::size_t removed_faces = origin_mesh.m_faces.rows();
@@ -169,6 +168,10 @@ int main(int argc, char **argv) {
                         if (color.m_r == 0 &&
                             color.m_g == 0 &&
                             color.m_b == 0) {
+                            /* TODO that's bad, we need considering to texture all faces which have same label in
+                             single patch */
+                            planar_groups.push_back(FaceGroup());
+                            planar_groups.back().m_face_indices.push_back(r);
                             continue;
                         }
 
@@ -275,6 +278,8 @@ int main(int argc, char **argv) {
         std::cout << "(Took: " << IO_timer.get_elapsed_sec() << " s)" << std::endl;
     }
 
+    // TODO delete
+    param.sparse_model = false;
     if (!map_textures(input_mesh, mesh_info, texture_views, param, planar_groups, origin_mesh, dense_mesh)) {
         std::cout << "\nMvsTexturing failed. (Took: " << whole_timer.get_elapsed_sec() << " s)" << std::endl;
         return 0;
