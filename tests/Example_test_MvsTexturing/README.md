@@ -36,6 +36,14 @@
     - 引入 GCOptimizatin
     - 用 elephant 做测试数据，投影结果非常怪异（发现检测得到的平面基本上弯曲度都比较大）
     
+    - 用于运行平面检测的程序设置了新参数，最终跑出的模型面片之间大小差异非常大，纹理映射效果变得非常差了。
+        - 应对策略：密集部位采用求解 MRF 方式；稀疏部位用 Projection 方法;
+        
+    - 用新参数设置 elephant 模型，得到了非常多的细碎无纹理三角片。原因是模型投影到自定义平面，由于 plane_density 是人为设置的值，所以投影到平面上可能还不到1像素
+        - plane_density 的大小要动态确定
+        - 没有纳入 plane detection 的面片也要尝试组合成一个 patch
+        - 如果真的遇到极端情况比如一个 face 的结果投影到平面都不止 1 像素，该考虑如何解决。
+    
 - 稀疏网格纹理映射
     - MvsTexturing、MakeMeshDense 和 TextureRemeshing 已经写好，稀疏网格纹理映射就靠这三个库串起来即可。
     - TextureRemeshing 还存在一些小问题，就是对纹理采样得到的图像变得模糊、有锯齿，还没想出改进办法。
@@ -99,4 +107,9 @@
 - elephant
     - WorkDirectory: /Users/stormphoenix/Workspace/Projects/CLionProjects/3dReconstruction/Dataset/elephant
     - Options: --scene_file ./visualSFM/test.nvm --input_mesh ./Input/model_0.ply --output_prefix ./Output_TexturePipeline/model_proj --mrf_call_lib mapmap --outlier_removal gauss_clamping --method_type projection --keep_unseen_faces true --skip_hole_filling true
+    
+- elephant01    
+    - WorkDirectory: /Users/stormphoenix/Workspace/Projects/CLionProjects/3dReconstruction/Dataset/elephant01
+    - Projection Options: --scene_file ./visualSFM/model.nvm --input_mesh ./model_dense_vis2mesh_simplified.ply --output_prefix ./Output_TexturePipeline/model --mrf_call_lib mapmap --outlier_removal gauss_clamping --method_type projection --keep_unseen_faces true --skip_hole_filling true --sparse_model true
+    - OpenMVS Options: --scene_file ./visualSFM/model.nvm --input_mesh ./model_dense_vis2mesh_simplified.ply --output_prefix ./Output_TexturePipeline/model --mrf_call_lib openmvs --outlier_removal gauss_clamping --method_type mrf -- --keep_unseen_faces true --skip_hole_filling true --sparse_model true
             

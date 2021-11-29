@@ -72,6 +72,8 @@ set(MVE_INCLUDE_DIR ${MVE_Src}/libs)
 set(RAYINT_Src ${PROJECT_SOURCE_DIR}/external/rayint)
 set(RAYINT_INCLUDE_DIR ${RAYINT_Src}/libs)
 
+set(SPDLOG_SOURCE_DIR ${PROJECT_SOURCE_DIR}/external/spdlog)
+
 ## Debug
 message(STATUS "Debug Boost include: ${Boost_INCLUDE_DIR}")
 
@@ -82,6 +84,7 @@ set(LBP_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/external/LBP)
 
 set(SOURCE_DIR "${PROJECT_SOURCE_DIR}/src")
 
+add_subdirectory(${SPDLOG_SOURCE_DIR})
 add_subdirectory(${MVE_Src})
 add_subdirectory(${SOURCE_DIR})
 add_subdirectory(${PROJECT_SOURCE_DIR}/tests/Example_test_MeshPolyRefinement)

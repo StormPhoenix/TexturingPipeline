@@ -24,6 +24,8 @@
 
 #include <util/timer.h>
 
+#include <spdlog/spdlog.h>
+
 #include "RemeshingUtils.h"
 
 #define PLANE_DENSITY 650
@@ -81,7 +83,9 @@ int main(int argc, char **argv) {
             ("plane_size", bpo::value<int>()->default_value(10),
              "minimal number of facets in plane segment, default 10")
             ("write_intermedia", bpo::value<bool>()->default_value(false),
-             "options for write intermedia files, default false");
+             "options for write intermedia files, default false")
+            ("debug_mode", bpo::value<bool>()->default_value(false),
+             "options for enter debug mode, default false");
 
     try {
         bpo::store(bpo::parse_command_line(argc, argv, opts), vm);
@@ -93,23 +97,38 @@ int main(int argc, char **argv) {
     const std::string in_mesh_path = vm["input_mesh"].as<std::string>();
     const std::string out_mesh_path = vm["output_mesh"].as<std::string>();
     const bool write_intermedia = vm["write_intermedia"].as<bool>();
+    const bool debug_mode = vm["debug_mode"].as<bool>();
+
+    if (debug_mode) {
+        spdlog::set_level(spdlog::level::debug);
+    }
 
     AttributeMatrix mesh_vertices, mesh_normals, mesh_texcoords;
     IndexMatrix mesh_faces, mesh_normal_ids, mesh_texcoord_ids;
     std::vector<std::string> face_materials;
     std::map<std::string, std::string> _material_map;
 
-    std::string extension = "";
+    std::string input_extension = "";
     {
         std::size_t dotpos = in_mesh_path.find_last_of('.');
-        if (dotpos != std::string::npos) {
-            extension = in_mesh_path.substr(dotpos, in_mesh_path.size());
+        if (dotpos != std::string::npos && dotpos != 0) {
+            input_extension = in_mesh_path.substr(dotpos, in_mesh_path.size());
         }
     }
 
-    if (extension == ".ply") {
+    std::string output_prefix = "";
+    {
+        std::size_t dotpos = out_mesh_path.find_last_of('.');
+        if (dotpos == std::string::npos || dotpos == 0) {
+            output_prefix = out_mesh_path;
+        } else {
+            output_prefix = out_mesh_path.substr(0, dotpos);
+        }
+    }
+
+    if (input_extension == ".ply") {
         MvsTexturing::IO::load_mesh_from_ply(in_mesh_path, mesh_vertices, mesh_faces);
-    } else if (extension == ".obj") {
+    } else if (input_extension == ".obj") {
         MvsTexturing::IO::load_mesh_from_obj(in_mesh_path, mesh_vertices, mesh_normals, mesh_texcoords, mesh_faces,
                                              mesh_normal_ids, mesh_texcoord_ids, face_materials, _material_map);
     }
@@ -131,11 +150,11 @@ int main(int argc, char **argv) {
         }
         MeshPolyRefinement::IO::read_mesh_from_memory(tmp_vertices, tmp_faces, mesh);
     }
-    std::cout << "Mesh vertices: " << mesh.m_vertices.rows() << " faces: " << mesh.m_faces.rows() << std::endl;
+    spdlog::info(" - mesh loaded, vertices: {0}, faces: {1}", mesh.m_vertices.rows(), mesh.m_faces.rows());
 
+    spdlog::info("###### MeshPolyRefinement ###### Detecting Planes");
     using namespace MeshPolyRefinement;
     // Texture remeshing pipeline
-    std::cout << "\n### MeshPolyRefinement------Detecting Planes" << std::endl;
     // detect planes on mesh using region-growing
     PlaneEstimation::region_growing_plane_estimate(mesh, vm["planar_score"].as<double>(),
                                                    vm["angle"].as<double>(), vm["ratio"].as<double>(),
@@ -150,9 +169,14 @@ int main(int argc, char **argv) {
     //merge parallel adjacent plane segments
     PlaneEstimation::plane_region_merge(mesh);
 
-    std::cout << "\n### TextureRemeshing------Refine None Group Faces" << std::endl;
+    if (debug_mode) {
+        IO::save_mesh_plane_segments(output_prefix + "_DebugMode.ply", mesh);
+        spdlog::debug(" - save model with plane detection results: {}_DebugMode.ply", output_prefix);
+    }
+
+    spdlog::info("###### TextureRemeshing ###### Refine None Group Faces");
     {
-        std::cout << "\tSearch non-planar faces ... ";
+        spdlog::info(" - search non-planar faces ... ");
         std::size_t rows = mesh.m_face_plane_index.rows();
 
         std::size_t none_planar_faces = 0;
@@ -160,10 +184,10 @@ int main(int argc, char **argv) {
             if (mesh.m_face_plane_index(i, 0) == -1) {
                 mesh.m_plane_groups.push_back(Base::PlaneGroup());
                 createOneFaceGroup(i, mesh.m_plane_groups.back(), mesh);
-                none_planar_faces ++;
+                none_planar_faces++;
             }
         }
-        std::cout << none_planar_faces << " faces found. \n";
+        spdlog::info(" - {} non-planar faces found", none_planar_faces);
     }
 
     if (write_intermedia) {
@@ -171,46 +195,47 @@ int main(int argc, char **argv) {
         IO::save_mesh_plane_segments(out_mesh_path, mesh);
     }
 
-    std::cout << "\n### TextureRemeshing------Load Texture images" << std::endl;
+    spdlog::info("###### TextureRemeshing ###### Load Texture images");
     std::map<std::string, mve::ByteImage::Ptr> material_image_map;
     {
         util::WallTimer timer;
-        std::cout << "\tLoad images...";
+        spdlog::info(" - load model materials ... ");
 
         for (auto it = _material_map.begin(); it != _material_map.end(); it++) {
             const std::string image_file_name = it->second;
             material_image_map[it->first] = mve::image::load_file(image_file_name);
         }
 
-        std::cout << " done. (Took: " << timer.get_elapsed_sec() << "s)" << std::endl;
+        spdlog::info(" - {} model materials loaded", material_image_map.size());
     }
 
-    std::cout << "\n### TextureRemeshing------Generate Texture Patches" << std::endl;
+    spdlog::info("###### TextureRemeshing ###### Generate Texture Patches");
     std::vector<MvsTexturing::Base::TexturePatch::Ptr> texture_patches;
     {
-        std::cout << "\tGenerating..." << std::flush;
+        spdlog::info(" - generating patches ... ");
         util::WallTimer timer;
         TextureRemeshing::Utils::remeshing_from_plane_groups(mesh, mesh_texcoords,
                                                              mesh_texcoord_ids, face_materials, material_image_map,
                                                              &texture_patches, 10, PLANE_DENSITY);
-        std::cout << " done. (Took: " << timer.get_elapsed_sec() << "s)" << std::endl;
+        spdlog::info(" - generating patches done, {} patches created", texture_patches.size());
     }
 
-    std::cout << "\n### TextureRemeshing------Generate Texture Atlases" << std::endl;
+    spdlog::info("###### TextureRemeshing ###### Generate Texture Atlases");
     std::vector<MvsTexturing::Base::TextureAtlas::Ptr> texture_atlases;
     {
+        spdlog::info(" - generating atlases ... ");
         MvsTexturing::AtlasMapper::generate_texture_atlases(&texture_patches, &texture_atlases);
+        spdlog::info(" - generating atlases done, {} created", texture_atlases.size());
     }
 
-    std::cout << "\n### TextureRemeshing------Write obj model" << std::endl;
+    spdlog::info("###### TextureRemeshing ###### Write obj model");
     {
-        std::cout << "\tWriting ..." << std::flush;
+        spdlog::info(" - writing model ...");
         util::WallTimer timer;
         mve::TriangleMesh::Ptr temp_mesh = TextureRemeshing::Utils::triMesh_to_mveMesh(mesh);
         MvsTexturing::IO::MVE::save_obj_mesh(out_mesh_path, temp_mesh, texture_atlases);
-
-        std::cout << " done. (Took: " << timer.get_elapsed_sec() << "s)" << std::endl;
+        spdlog::info(" - writing obj model done");
     }
-    std::cout << "Texture remeshing done. " << std::endl;
+    spdlog::info("Texture remeshing done. ");
     return 0;
 }

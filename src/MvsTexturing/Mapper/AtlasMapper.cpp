@@ -709,7 +709,7 @@ namespace MvsTexturing {
                 texture_patches.push_back(texture_patch);
             }
 
-            std::cout << "\tSorting texture patches... " << std::flush;
+//            std::cout << "\tSorting texture patches... " << std::flush;
             /* Improve the bin-packing algorithm efficiency by sorting texture patches
              * in descending order of size. */
             texture_patches.sort(comp);
