@@ -5,6 +5,7 @@
 #include <memory>
 #include <map>
 #include <set>
+#include <queue>
 
 #include <Base/TriMesh.h>
 #include <Base/TexturePatch.h>
@@ -12,6 +13,9 @@
 #include <mve/mesh.h>
 #include <mve/mesh_info.h>
 #include <mve/image.h>
+#include <mve/image_tools.h>
+
+#include <common.h>
 
 namespace TextureRemeshing {
     namespace Utils {
@@ -50,14 +54,13 @@ namespace TextureRemeshing {
             return ans;
         }
 
-        bool remeshing_from_plane_groups(const TriMesh &mesh,
-                                         const AttributeMatrix &global_texcoords,
-                                         const IndexMatrix &global_texcoord_ids,
-                                         const std::vector<std::string> &face_materials,
-                                         const std::map<std::string, mve::ByteImage::Ptr> &material_image_map,
-                                         std::vector<MvsTexturing::Base::TexturePatch::Ptr> *texture_patches,
-                                         std::size_t padding_pixels = 10,
-                                         const std::size_t plane_density = 300) {
+        bool create_plane_patches(const TriMesh &mesh, const AttributeMatrix &global_texcoords,
+                                  const IndexMatrix &global_texcoord_ids,
+                                  const std::vector<std::string> &face_materials,
+                                  const std::map<std::string, mve::ByteImage::Ptr> &material_image_map,
+                                  std::vector<MvsTexturing::Base::TexturePatch::Ptr> *texture_patches,
+                                  std::size_t padding_pixels = 10,
+                                  const std::size_t plane_density = 300) {
             bool using_materials = (!face_materials.empty()) && (!material_image_map.empty());
             padding_pixels = std::max(padding_pixels, std::size_t(2));
             struct TexCoord {
@@ -318,16 +321,209 @@ namespace TextureRemeshing {
             return true;
         }
 
-        bool remeshing_from_plane_groups(const TriMesh &mesh,
-                                         const AttributeMatrix &global_texcoords,
-                                         const IndexMatrix &global_texcoord_ids,
-                                         std::vector<MvsTexturing::Base::TexturePatch::Ptr> *texture_patches,
-                                         std::size_t padding_pixels = 10,
-                                         const std::size_t plane_density = 300) {
+        bool create_plane_patches(const TriMesh &mesh, const AttributeMatrix &global_texcoords,
+                                  const IndexMatrix &global_texcoord_ids,
+                                  std::vector<MvsTexturing::Base::TexturePatch::Ptr> *texture_patches,
+                                  std::size_t padding_pixels = 10,
+                                  const std::size_t plane_density = 300) {
             std::vector<std::string> _nop_vec;
             std::map<std::string, mve::ByteImage::Ptr> _nop_map;
-            return remeshing_from_plane_groups(mesh, global_texcoords, global_texcoord_ids, _nop_vec, _nop_map,
-                                               texture_patches, padding_pixels, plane_density);
+            return create_plane_patches(mesh, global_texcoords, global_texcoord_ids, _nop_vec, _nop_map,
+                                        texture_patches, padding_pixels, plane_density);
+        }
+
+        bool has_common_texture_coordinates(const std::size_t face_index, const std::size_t adj_face_index,
+                                            const AttributeMatrix &texture_coords,
+                                            const IndexMatrix &texture_coord_indices) {
+            int n_common = 0;
+            for (int c = 0; c < 3; c++) {
+                int texture_coordinate_index = texture_coord_indices(face_index, c);
+                for (int adj_c = 0; adj_c < 3; adj_c++) {
+                    int adj_texture_coordinate_index = texture_coord_indices(adj_face_index, adj_c);
+
+                    if (texture_coordinate_index == adj_texture_coordinate_index) {
+                        n_common++;
+                    } else {
+                        double texture_coord[2] = {texture_coords(texture_coordinate_index, 0),
+                                                   texture_coords(texture_coordinate_index, 1)};
+
+                        double adj_texture_coord[2] = {texture_coords(adj_texture_coordinate_index, 0),
+                                                       texture_coords(adj_texture_coordinate_index, 1)};
+
+                        if ((texture_coord[0] == adj_texture_coord[0]) &&
+                            (texture_coord[1] == adj_texture_coord[1])) {
+                            n_common++;
+                        }
+
+                        LOG_TRACE("texture coordinate diff: ({0} - {1})",
+                                  texture_coord[0] - adj_texture_coord[0], texture_coord[1] - adj_texture_coord[1]);
+                    }
+                }
+            }
+
+            return n_common > 0;
+        }
+
+        bool has_common_texture_materials(const std::size_t face_index, const std::size_t adj_face_index,
+                                          const std::vector<std::string> &face_materials) {
+            return face_materials[face_index] == face_materials[adj_face_index];
+        }
+
+        bool is_connected_in_texture(const std::size_t face_index, const std::size_t adj_face_index,
+                                     const std::vector<std::string> &face_materials,
+                                     const AttributeMatrix &texture_coords,
+                                     const IndexMatrix &texture_coord_indices) {
+            return has_common_texture_coordinates(face_index, adj_face_index, texture_coords, texture_coord_indices) &&
+                   has_common_texture_materials(face_index, adj_face_index, face_materials);
+        }
+
+        void divide_faces_by_texture(const IndexMatrix &ff_adjacency, std::set<std::size_t> &face_group,
+                                     const std::vector<std::string> &face_materials,
+                                     const AttributeMatrix &texture_coords,
+                                     const IndexMatrix &texture_coord_indices,
+                                     std::vector<std::vector<std::size_t>> &result) {
+            // classification in texture level
+            // divide faces by material and texture coordinates
+            while (!face_group.empty()) {
+                std::set<std::size_t> visited;
+                std::queue<std::size_t> q;
+
+                q.push((*face_group.begin()));
+                visited.insert((*face_group.begin()));
+
+                result.push_back(std::vector<std::size_t>());
+                while (!q.empty()) {
+                    std::size_t f_index = q.front();
+                    result.back().push_back(f_index);
+                    q.pop();
+
+                    for (int c = 0; c < 3; c++) {
+                        int adj_f_index = ff_adjacency(f_index, c);
+
+                        if (adj_f_index < 0) {
+                            continue;
+                        }
+
+                        if (face_group.find(adj_f_index) == face_group.end()) {
+                            continue;
+                        }
+
+                        if (visited.find(adj_f_index) != visited.end()) {
+                            continue;
+                        }
+
+                        if (!is_connected_in_texture(f_index, adj_f_index, face_materials, texture_coords,
+                                                     texture_coord_indices)) {
+                            continue;
+                        }
+
+                        q.push(adj_f_index);
+                        visited.insert(adj_f_index);
+                    }
+                }
+
+                for (auto f_index : result.back()) {
+                    face_group.erase(f_index);
+                }
+            }
+
+            /*
+            std::map<std::string, std::size_t> category_id;
+            for (const std::size_t face_index : face_group) {
+                if (face_index >= face_materials.size()) {
+                    LOG_ERROR(" - divide_face_group_by_texture() error: face_index out of range");
+                }
+
+                std::string material_name = face_materials[face_index];
+                if (category_id.find(material_name) != category_id.end()) {
+                    result[category_id[material_name]].push_back(face_index);
+                } else {
+                    result.push_back(std::vector<std::size_t>());
+                    category_id[material_name] = result.size() - 1;
+                    result.back().push_back(face_index);
+                }
+            }
+             */
+        }
+
+        bool create_irregular_patches(const MeshPolyRefinement::Base::TriMesh &mesh,
+                                      const AttributeMatrix &global_texcoords,
+                                      const IndexMatrix &global_texcoord_ids,
+                                      std::vector<std::set<std::size_t>> &none_plane_group_faces,
+                                      const std::vector<std::string> &face_materials,
+                                      const std::map<std::string, mve::ByteImage::Ptr> &material_image_map,
+                                      std::vector<MvsTexturing::Base::TexturePatch::Ptr> *texture_patches,
+                                      const std::size_t kPaddingPixels, const std::size_t kPlaneDensity) {
+            for (auto &face_group : none_plane_group_faces) {
+                std::vector<std::vector<std::size_t>> same_material_patch;
+                divide_faces_by_texture(mesh.m_ff_adjacency, face_group, face_materials,
+                                        global_texcoords, global_texcoord_ids, same_material_patch);
+
+                for (const auto &patch_faces : same_material_patch) {
+                    const std::string material_name = face_materials[patch_faces[0]];
+                    mve::ByteImage::ConstPtr material = material_image_map.find(material_name)->second;
+                    const int material_width = material->width();
+                    const int material_height = material->height();
+
+                    int min_x = material_width, min_y = material_height;
+                    int max_x = 0, max_y = 0;
+
+                    std::vector<math::Vec2f> patch_texture_coords;
+                    for (std::size_t face_index : patch_faces) {
+                        math::Vec2f src_v1;
+                        src_v1[0] = global_texcoords(global_texcoord_ids(face_index, 0), 0) * double(material_width);
+                        src_v1[1] = global_texcoords(global_texcoord_ids(face_index, 0), 1) * double(material_height);
+                        min_x = std::min(min_x, static_cast<int>(src_v1[0]));
+                        min_y = std::min(min_y, static_cast<int>(src_v1[1]));
+                        max_x = std::max(max_x, static_cast<int>(src_v1[0]));
+                        max_y = std::max(max_y, static_cast<int>(src_v1[1]));
+                        patch_texture_coords.push_back(src_v1);
+
+                        math::Vec2f src_v2;
+                        src_v2[0] = global_texcoords(global_texcoord_ids(face_index, 1), 0) * double(material_width);
+                        src_v2[1] = global_texcoords(global_texcoord_ids(face_index, 1), 1) * double(material_height);
+                        min_x = std::min(min_x, static_cast<int>(src_v2[0]));
+                        min_y = std::min(min_y, static_cast<int>(src_v2[1]));
+                        max_x = std::max(max_x, static_cast<int>(src_v2[0]));
+                        max_y = std::max(max_y, static_cast<int>(src_v2[1]));
+                        patch_texture_coords.push_back(src_v2);
+
+                        math::Vec2f src_v3;
+                        src_v3[0] = global_texcoords(global_texcoord_ids(face_index, 2), 0) * double(material_width);
+                        src_v3[1] = global_texcoords(global_texcoord_ids(face_index, 2), 1) * double(material_height);
+                        min_x = std::min(min_x, static_cast<int>(src_v3[0]));
+                        min_y = std::min(min_y, static_cast<int>(src_v3[1]));
+                        max_x = std::max(max_x, static_cast<int>(src_v3[0]));
+                        max_y = std::max(max_y, static_cast<int>(src_v3[1]));
+                        patch_texture_coords.push_back(src_v3);
+                    }
+
+                    if (min_x < 0 || min_y < 0 || max_x >= material_width ||
+                        max_y >= material_height) {
+                        LOG_ERROR(" - create_irregular_patches() error: texture coords out of range.");
+                        return false;
+                    }
+
+                    const int patch_width = max_x - min_x + 1 + 2 * kPaddingPixels;
+                    const int patch_height = max_y - min_y + 1 + 2 * kPaddingPixels;
+                    min_x -= kPaddingPixels;
+                    min_y -= kPaddingPixels;
+                    mve::ByteImage::Ptr byte_image = mve::image::crop(material, patch_width, patch_height,
+                                                                      min_x, min_y, *math::Vec3uc(255, 0, 255));
+                    mve::FloatImage::Ptr patch_image = mve::image::byte_to_float_image(byte_image);
+
+                    math::Vec2f min(min_x, min_y);
+                    for (std::size_t i = 0; i < patch_texture_coords.size(); ++i) {
+                        patch_texture_coords[i] = patch_texture_coords[i] - min;
+                    }
+
+                    using namespace MvsTexturing;
+                    texture_patches->push_back(
+                            Base::TexturePatch::create(0, patch_faces, patch_texture_coords, patch_image));
+                }
+            }
+
+            return true;
         }
     }
 }

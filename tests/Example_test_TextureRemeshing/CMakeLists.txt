@@ -20,4 +20,5 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
         MvsTexturing-Library
         MeshPolyRefinement-Library
         Boost::program_options Boost::thread
+        spdlog::spdlog
         mve mve_util)

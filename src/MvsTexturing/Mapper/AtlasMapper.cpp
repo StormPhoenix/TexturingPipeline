@@ -713,7 +713,6 @@ namespace MvsTexturing {
             /* Improve the bin-packing algorithm efficiency by sorting texture patches
              * in descending order of size. */
             texture_patches.sort(comp);
-            std::cout << "done." << std::endl;
 
             std::size_t const total_num_patches = texture_patches.size();
             std::size_t remaining_patches = texture_patches.size();
@@ -737,9 +736,6 @@ namespace MvsTexturing {
                                           / total_num_patches * 100.0f;
                             if (total_num_patches > 100
                                 && done_patches % (total_num_patches / 100) == 0) {
-
-                                tty << "\r\tWorking on atlas " << texture_atlases->size() << " "
-                                    << precent << "%... " << std::flush;
                             }
 
                             if (texture_atlas->insert(*it)) {
@@ -754,12 +750,8 @@ namespace MvsTexturing {
                         texture_atlas->finalize();
                     }
 
-                    std::cout << "\r\tWorking on atlas " << texture_atlases->size()
-                              << " 100%... done." << std::endl;
                     util::WallTimer timer;
-                    std::cout << "\tFinalizing texture atlases... " << std::flush;
 #pragma omp taskwait
-                    std::cout << "done. (Took: " << timer.get_elapsed_sec() << "s)" << std::endl;
 
                     /* End of single region */
                 }

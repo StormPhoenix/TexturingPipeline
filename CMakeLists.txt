@@ -84,6 +84,8 @@ set(LBP_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/external/LBP)
 
 set(SOURCE_DIR "${PROJECT_SOURCE_DIR}/src")
 
+include_directories(${PROJECT_SOURCE_DIR}/include)
+
 add_subdirectory(${SPDLOG_SOURCE_DIR})
 add_subdirectory(${MVE_Src})
 add_subdirectory(${SOURCE_DIR})
