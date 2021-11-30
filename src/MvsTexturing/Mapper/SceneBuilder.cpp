@@ -383,7 +383,6 @@ namespace MvsTexturing {
                         }
                     }
                 }
-                std::cout << "\t" << graph->num_edges() << " total edges." << std::endl;
             }
         }
     }
