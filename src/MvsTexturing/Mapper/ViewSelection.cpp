@@ -381,37 +381,6 @@ namespace MvsTexturing {
                 std::vector<std::set<__inner__::FaceQuality>> face_visibilities(mesh->get_faces().size() / 3);
                 calculate_face_visibility(mesh, bvh_tree, texture_views, param, face_visibilities);
 
-                /*
-                // region growing
-                TriMesh tri_mesh;
-                Utils::mveMesh_to_triMesh(mesh, tri_mesh);
-                {
-                    using namespace MeshPolyRefinement;
-                    // detect planes on mesh using region-growing
-                    PlaneEstimation::region_growing_plane_estimate(tri_mesh, param.planar_score, param.angle_threshold,
-                                                                   param.ratio_threshold, param.min_plane_size);
-
-                    // expand plane segment regions
-                    PlaneEstimation::plane_region_expand(tri_mesh, 50.0, 45.0);
-
-                    // filter small non-plane regions
-                    PlaneEstimation::plane_region_refine(tri_mesh);
-
-                    // merge parallel adjacent plane segments
-                    PlaneEstimation::plane_region_merge(tri_mesh);
-
-                    // TODO save intermedia result
-                    {
-                        MeshPolyRefinement::IO::save_mesh_plane_segments("./proj_intermedia_res.ply", tri_mesh);
-                    }
-                }
-
-                for (std::size_t group_id = 0; group_id < tri_mesh.m_plane_groups.size(); group_id++) {
-                    PlaneGroup &group = tri_mesh.m_plane_groups[group_id];
-                    project_to_plane(mesh, mesh_info, group, texture_views, face_visibilities, graph);
-                }
-                 */
-
                 for (std::size_t group_id = 0; group_id < planar_groups.size(); group_id++) {
                     const FaceGroup &group = planar_groups[group_id];
                     project_to_plane(mesh, mesh_info, group, texture_views, face_visibilities, graph);

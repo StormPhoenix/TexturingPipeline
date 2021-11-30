@@ -43,17 +43,7 @@ namespace MeshSimplification {
     using FloatImageConstPtr = mve::FloatImage::ConstPtr;
     using TexturePatch = MvsTexturing::Base::TexturePatch;
 
-
-    bool simplify_mesh_texture(const Mesh &sparse_mesh, const Mesh &dense_mesh,
-                               const std::vector<ImagePtr> &dense_mesh_materials,
-                               const FacesSubdivisions &faces_subdivision,
-                               const FaceGroups &sparse_mesh_face_groups,
-                               TexturePatchArray *sparse_texture_patches,
-                               std::size_t padding_pixels = 5,
-                               const std::size_t plane_density = 300);
-
-
-    bool simplify_mesh_texture(const AttributeMatrix &sparse_mesh_vertices,
+    bool create_plane_patches(const AttributeMatrix &sparse_mesh_vertices,
                                const IndexMatrix &sparse_mesh_faces,
                                const std::vector<FaceGroup> &sparse_planar_groups,
 

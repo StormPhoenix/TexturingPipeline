@@ -91,7 +91,7 @@ namespace __inner__ {
     };
 }
 
-bool dense_texture_to_sparse(const __inner__::Mesh &sparse_mesh, const __inner__::Mesh &dense_mesh,
+bool texture_from_dense_to_sparse_model(const __inner__::Mesh &sparse_mesh, const __inner__::Mesh &dense_mesh,
                              const TexturePatches &texture_patches, const Parameter &param,
                              const std::vector<FaceGroup> &planar_group, const FaceSubdivisions &face_subdivisions,
                              std::vector<TexturePatch::Ptr> *final_patches);
@@ -169,6 +169,7 @@ int main(int argc, char **argv) {
                                                origin_mesh.m_face_colors(r, 1),
                                                origin_mesh.m_face_colors(r, 2));
 
+                        // TODO delete 未上色部分默认当成 one triangle 平面
                         if (color.m_r == 0 &&
                             color.m_g == 0 &&
                             color.m_b == 0) {
@@ -518,7 +519,7 @@ bool map_textures(MeshPtr input_mesh, MeshInfo &mesh_info, TextureViews &texture
         using namespace MvsTexturing;
         // Create texture patches and adjust them
         std::vector<std::vector<Base::VertexProjectionInfo>> vertex_projection_infos;
-        LOG_INFO("generate primary texture patches ... ");
+        LOG_INFO(" - generate primary texture patches ... ");
         AtlasMapper::generate_texture_patches(graph, input_mesh, mesh_info, &texture_views,
                                               param, &vertex_projection_infos, &texture_patches);
         LOG_INFO(" - {} patches created", texture_patches.size());
@@ -547,8 +548,12 @@ bool map_textures(MeshPtr input_mesh, MeshInfo &mesh_info, TextureViews &texture
         if (param.sparse_model) {
             std::vector<TexturePatch::Ptr> final_texture_patches;
             LOG_INFO(" - retrieve sparse model texture from dense model ... ");
-            dense_texture_to_sparse(origin_mesh, dense_mesh, texture_patches, param, origin_planar_groups,
-                                    face_subdivisions, &final_texture_patches);
+            bool ret = texture_from_dense_to_sparse_model(origin_mesh, dense_mesh, texture_patches, param, origin_planar_groups,
+                                               face_subdivisions, &final_texture_patches);
+            if (!ret) {
+                LOG_ERROR(" - texture simplify failed");
+                return false;
+            }
             texture_patches.swap(final_texture_patches);
             LOG_INFO(" - done");
         }
@@ -581,11 +586,10 @@ bool map_textures(MeshPtr input_mesh, MeshInfo &mesh_info, TextureViews &texture
     return true;
 }
 
-bool dense_texture_to_sparse(const __inner__::Mesh &sparse_mesh, const __inner__::Mesh &dense_mesh,
+bool texture_from_dense_to_sparse_model(const __inner__::Mesh &sparse_mesh, const __inner__::Mesh &dense_mesh,
                              const TexturePatches &texture_patches, const Parameter &param,
                              const std::vector<FaceGroup> &planar_groups, const FaceSubdivisions &face_subdivisions,
                              std::vector<TexturePatch::Ptr> *final_patches) {
-
     using namespace MvsTexturing;
     // init texture coords and face materials
     std::vector<FloatImageConstPtr> dense_mesh_face_materials;
@@ -599,7 +603,7 @@ bool dense_texture_to_sparse(const __inner__::Mesh &sparse_mesh, const __inner__
             const std::vector<std::size_t> &faces_in_patch = (*it)->get_faces();
             const std::vector<math::Vec2f> &texture_coords_in_patch = (*it)->get_texcoords();
             if (faces_in_patch.size() * 3 != texture_coords_in_patch.size()) {
-                std::cout << "size of faces and texcoords in TexturePatch is not match. \n";
+                LOG_ERROR(" - size of faces and texcoords in texture patch is not match");
                 return false;
             }
 
@@ -614,7 +618,7 @@ bool dense_texture_to_sparse(const __inner__::Mesh &sparse_mesh, const __inner__
         }
     }
 
-    return MeshSimplification::simplify_mesh_texture(sparse_mesh.m_vertices, sparse_mesh.m_faces, planar_groups,
+    return MeshSimplification::create_plane_patches(sparse_mesh.m_vertices, sparse_mesh.m_faces, planar_groups,
 
                                                      dense_mesh.m_vertices, dense_mesh.m_faces,
                                                      dense_mesh_face_texture_coords,

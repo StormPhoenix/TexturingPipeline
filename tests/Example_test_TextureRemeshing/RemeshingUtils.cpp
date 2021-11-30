@@ -426,24 +426,6 @@ namespace TextureRemeshing {
                     face_group.erase(f_index);
                 }
             }
-
-            /*
-            std::map<std::string, std::size_t> category_id;
-            for (const std::size_t face_index : face_group) {
-                if (face_index >= face_materials.size()) {
-                    LOG_ERROR(" - divide_face_group_by_texture() error: face_index out of range");
-                }
-
-                std::string material_name = face_materials[face_index];
-                if (category_id.find(material_name) != category_id.end()) {
-                    result[category_id[material_name]].push_back(face_index);
-                } else {
-                    result.push_back(std::vector<std::size_t>());
-                    category_id[material_name] = result.size() - 1;
-                    result.back().push_back(face_index);
-                }
-            }
-             */
         }
 
         bool create_irregular_patches(const MeshPolyRefinement::Base::TriMesh &mesh,
