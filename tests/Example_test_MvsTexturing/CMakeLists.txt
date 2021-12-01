@@ -7,7 +7,6 @@ file(GLOB_RECURSE SOURCES ./*.h ./*.hpp ./*.cpp ./*.c)
 
 include_directories(${SOURCE_DIR}/MeshPolyRefinement)
 include_directories(${SOURCE_DIR}/MvsTexturing)
-include_directories(${SOURCE_DIR}/MeshRepair)
 include_directories(${EIGEN3_INCLUDE_DIR})
 include_directories(${Boost_INCLUDE_DIR})
 
@@ -18,6 +17,5 @@ target_include_directories(${PROJECT_NAME} PRIVATE
         ${RAYINT_INCLUDE_DIR})
 target_link_libraries(${PROJECT_NAME}
         MvsTexturing-Library
-        MeshRepair-Library
         spdlog::spdlog
         Boost::program_options)

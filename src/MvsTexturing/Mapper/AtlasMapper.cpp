@@ -642,8 +642,8 @@ namespace MvsTexturing {
                 unsigned int total_area = 0;
                 unsigned int max_width = 0;
                 unsigned int max_height = 0;
-                unsigned int padding = size >> 7;
-//                unsigned int padding = 4;
+//                unsigned int padding = size >> 7;
+                unsigned int padding = Base::TextureAtlas::kTextureAtlasPadding;
 
                 for (Base::TexturePatch::ConstPtr texture_patch : texture_patches) {
                     unsigned int width = texture_patch->get_width() + 2 * padding;

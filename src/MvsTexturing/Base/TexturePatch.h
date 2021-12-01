@@ -41,6 +41,7 @@ namespace MvsTexturing {
         */
         class TexturePatch {
         public:
+            static const int kTexturePatchPadding = 2;
             typedef std::shared_ptr<TexturePatch> Ptr;
             typedef std::shared_ptr<const TexturePatch> ConstPtr;
             typedef std::vector<std::size_t> Faces;

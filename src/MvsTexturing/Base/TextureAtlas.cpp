@@ -15,7 +15,8 @@
 namespace MvsTexturing {
     namespace Base {
         TextureAtlas::TextureAtlas(unsigned int size) :
-                size(size), padding(size >> 7), finalized(false) {
+//                size(size), padding(size >> 7), finalized(false) {
+                size(size), padding(kTextureAtlasPadding), finalized(false) {
             bin = RectBin::create(size, size);
             image = mve::ByteImage::create(size, size, 3);
             validity_mask = mve::ByteImage::create(size, size, 1);

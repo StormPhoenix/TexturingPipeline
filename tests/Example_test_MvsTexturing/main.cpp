@@ -8,20 +8,19 @@
 
 #include <mve/image_tools.h>
 
+#include <Parameter.h>
 #include <MvsTexturing.h>
 #include <Base/SparseTable.h>
 #include <Mapper/AtlasMapper.h>
 #include <Mapper/SeamSmoother.h>
 #include <Mapper/ViewSelection.h>
-#include <Parameter.h>
+#include <Repair/MeshSubdivision.h>
+#include <Repair/MeshSimplification.h>
 #include <Utils/Utils.h>
 #include <Utils/MeshAdapter.h>
 
 #include <PlaneEstimation/RegionExpand.h>
 #include <PlaneEstimation/RegionGrowing.h>
-
-#include <MeshSubdivision.h>
-#include <MeshSimplification.h>
 
 typedef acc::BVHTree<unsigned int, math::Vec3f> BVHTree;
 
@@ -44,7 +43,7 @@ using Parameter = MvsTexturing::Parameter;
 using ByteImagePtr = mve::ByteImage::Ptr;
 using FloatImagePtr = mve::FloatImage::Ptr;
 using FloatImageConstPtr = mve::FloatImage::ConstPtr;
-using FaceGroup = MeshSimplification::FaceGroup;
+using FaceGroup = MvsTexturing::MeshRepair::FaceGroup;
 using FaceSubdivisions = std::vector<std::vector<std::size_t>>;
 using TriMesh = MeshPolyRefinement::Base::TriMesh;
 
@@ -91,13 +90,15 @@ namespace __inner__ {
     };
 }
 
-bool texture_from_dense_to_sparse_model(const __inner__::Mesh &sparse_mesh, const __inner__::Mesh &dense_mesh,
-                             const TexturePatches &texture_patches, const Parameter &param,
-                             const std::vector<FaceGroup> &planar_group, const FaceSubdivisions &face_subdivisions,
-                             std::vector<TexturePatch::Ptr> *final_patches);
+bool texture_from_dense_to_sparse_model(
+        const Parameter &param, const __inner__::Mesh &sparse_mesh, const __inner__::Mesh &dense_mesh,
+        const TexturePatches &texture_patches, const std::vector<FaceGroup> &planar_groups,
+        std::set<std::size_t> &irregular_patch_faces, const FaceSubdivisions &face_subdivisions,
+        std::vector<TexturePatch::Ptr> *final_patches);
 
 bool map_textures(MeshPtr input_mesh, MeshInfo &mesh_info, TextureViews &texture_views, const Parameter &param,
                   std::vector<FaceGroup> &origin_planar_groups,
+                  std::set<std::size_t> &irregular_patch_faces,
                   const FaceSubdivisions &face_subdivisions,
                   const __inner__::Mesh &origin_mesh, const __inner__::Mesh &dense_mesh);
 
@@ -120,6 +121,7 @@ int main(int argc, char **argv) {
     LOG_INFO("###### MvsTexturing ------ Load mesh ");
     __inner__::Mesh origin_mesh, dense_mesh;
     std::vector<FaceGroup> origin_planar_groups;
+    std::set<std::size_t> irregular_patch_faces;
     std::vector<std::vector<std::size_t>> face_subdivisions;
     MeshPtr input_mesh;
     {
@@ -151,7 +153,7 @@ int main(int argc, char **argv) {
             // remove duplicated faces
             {
                 std::size_t origin_faces = origin_mesh.m_faces.rows();
-                MeshSimplification::remove_duplicate_faces(origin_mesh.m_faces, origin_mesh.m_face_colors);
+                MeshRepair::remove_duplicate_faces(origin_mesh.m_faces, origin_mesh.m_face_colors);
                 std::size_t removed_faces = origin_mesh.m_faces.rows();
                 LOG_INFO(" - remove duplicated faces : {}", (origin_faces - removed_faces));
             }
@@ -159,7 +161,7 @@ int main(int argc, char **argv) {
             // detect planes and init face group
             {
                 if (origin_mesh.m_has_face_color) {
-                    LOG_INFO(" - loading precomputed face group ... ");
+                    LOG_INFO(" - loading precomputed plane patches ... ");
                     IO_timer.reset();
                     // if face color exists, the plane groups have been computed
                     std::map<__inner__::Color, std::size_t> group_id_map;
@@ -168,15 +170,10 @@ int main(int argc, char **argv) {
                         __inner__::Color color(origin_mesh.m_face_colors(r, 0),
                                                origin_mesh.m_face_colors(r, 1),
                                                origin_mesh.m_face_colors(r, 2));
-
-                        // TODO delete 未上色部分默认当成 one triangle 平面
                         if (color.m_r == 0 &&
                             color.m_g == 0 &&
                             color.m_b == 0) {
-                            /* TODO that's bad, we need considering to texture all faces which have same label in
-                             single patch */
-                            origin_planar_groups.push_back(FaceGroup());
-                            origin_planar_groups.back().m_face_indices.push_back(r);
+                            irregular_patch_faces.insert(r);
                             continue;
                         }
 
@@ -190,9 +187,10 @@ int main(int argc, char **argv) {
                     }
 
                     for (FaceGroup &group : origin_planar_groups) {
-                        MeshSimplification::fit_face_group_plane(origin_mesh.m_vertices, origin_mesh.m_faces, group);
+                        MeshRepair::fit_face_group_plane(origin_mesh.m_vertices, origin_mesh.m_faces, group);
                     }
-                    LOG_INFO(" - done. face group loaded");
+                    LOG_INFO(" - done. {} plane patches, {} irregular faces loaded", origin_planar_groups.size(),
+                             irregular_patch_faces.size());
                 } else {
                     LOG_INFO(" - computing face group ... ");
                     IO_timer.reset();
@@ -230,7 +228,15 @@ int main(int argc, char **argv) {
                         dest_group.m_x_axis = group.m_x_axis;
                         dest_group.m_y_axis = group.m_y_axis;
                     }
-                    LOG_INFO(" - {} face groups is computed", origin_planar_groups.size());
+
+                    for (std::size_t r = 0; r < sparse_tri_mesh.m_face_plane_index.rows(); r++) {
+                        int plane_index = sparse_tri_mesh.m_face_plane_index(r, 0);
+                        if (plane_index < 0) {
+                            irregular_patch_faces.insert(r);
+                        }
+                    }
+
+                    LOG_INFO(" - done. {} plane patches is computed", origin_planar_groups.size());
                 }
             }
 
@@ -269,8 +275,22 @@ int main(int argc, char **argv) {
                         face_subdivisions[sparse_face_idx].push_back(dense_face_id);
                     }
                 }
+
+                // filter spilt faces
+                for (auto it = irregular_patch_faces.begin(); it != irregular_patch_faces.end();) {
+                    std::size_t face_index = (*it);
+                    if (face_subdivisions[face_index].size() > 1) {
+                        origin_planar_groups.push_back(FaceGroup());
+                        origin_planar_groups.back().m_face_indices.push_back(face_index);
+                        MeshRepair::fit_face_group_plane(origin_mesh.m_vertices, origin_mesh.m_faces,
+                                                         origin_planar_groups.back());
+                        irregular_patch_faces.erase(it++);
+                    } else {
+                        it++;
+                    }
+                }
             }
-            LOG_INFO(" - done");
+            LOG_INFO(" - compute mappings done");
 
             if (param.debug_mode) {
                 const std::string DebugMode_DenseMesh_Path =
@@ -316,8 +336,8 @@ int main(int argc, char **argv) {
         LOG_INFO(" - done. {} images loaded", texture_views.size());
     }
 
-    if (!map_textures(input_mesh, mesh_info, texture_views, param, origin_planar_groups, face_subdivisions,
-                      origin_mesh, dense_mesh)) {
+    if (!map_textures(input_mesh, mesh_info, texture_views, param, origin_planar_groups,
+                      irregular_patch_faces, face_subdivisions, origin_mesh, dense_mesh)) {
         LOG_ERROR(" - texture mapping failed");
         return 0;
     }
@@ -435,9 +455,9 @@ void run_mrf_method(const MeshPtr mesh, const BVHTree &bvh_tree,
 
 bool map_textures(MeshPtr input_mesh, MeshInfo &mesh_info, TextureViews &texture_views,
                   const Parameter &param, std::vector<FaceGroup> &origin_planar_groups,
+                  std::set<std::size_t> &irregular_patch_faces,
                   const FaceSubdivisions &face_subdivisions,
-                  const __inner__::Mesh &origin_mesh,
-                  const __inner__::Mesh &dense_mesh) {
+                  const __inner__::Mesh &origin_mesh, const __inner__::Mesh &dense_mesh) {
     // Build adjacency graph
     LOG_INFO("###### MvsTexturing ------ Build adjacency graph ");
     LOG_INFO(" - computing adjacency graph ... ");
@@ -527,7 +547,7 @@ bool map_textures(MeshPtr input_mesh, MeshInfo &mesh_info, TextureViews &texture
         if (!param.skip_global_seam_leveling) {
             LOG_INFO(" - global seam leveling started ... ");
             SeamSmoother::global_seam_leveling(graph, input_mesh, mesh_info, vertex_projection_infos, &texture_patches);
-            LOG_INFO(" - done");
+            LOG_INFO(" - global seam leveling done");
         } else {
             LOG_INFO(" - calculating validity masks for texture patches... ");
 #pragma omp parallel for schedule(dynamic)
@@ -536,7 +556,7 @@ bool map_textures(MeshPtr input_mesh, MeshInfo &mesh_info, TextureViews &texture
                 std::vector<math::Vec3f> patch_adjust_values(texture_patch->get_faces().size() * 3, math::Vec3f(0.0f));
                 texture_patch->adjust_colors(patch_adjust_values);
             }
-            LOG_INFO(" - done");
+            LOG_INFO(" - calculate validity masks done");
         }
 
         if (!param.skip_local_seam_leveling) {
@@ -548,10 +568,12 @@ bool map_textures(MeshPtr input_mesh, MeshInfo &mesh_info, TextureViews &texture
         if (param.sparse_model) {
             std::vector<TexturePatch::Ptr> final_texture_patches;
             LOG_INFO(" - retrieve sparse model texture from dense model ... ");
-            bool ret = texture_from_dense_to_sparse_model(origin_mesh, dense_mesh, texture_patches, param, origin_planar_groups,
-                                               face_subdivisions, &final_texture_patches);
+            bool ret = texture_from_dense_to_sparse_model(
+                    param, origin_mesh, dense_mesh, texture_patches, origin_planar_groups,
+                    irregular_patch_faces, face_subdivisions, &final_texture_patches);
+
             if (!ret) {
-                LOG_ERROR(" - texture simplify failed");
+                LOG_ERROR(" - map_textures() : texture simplify failed");
                 return false;
             }
             texture_patches.swap(final_texture_patches);
@@ -565,8 +587,8 @@ bool map_textures(MeshPtr input_mesh, MeshInfo &mesh_info, TextureViews &texture
         using namespace MvsTexturing;
         util::WallTimer timer;
         LOG_INFO(" - generating ... ");
-        AtlasMapper::generate_texture_atlases(&texture_patches, &texture_atlases,
-                                              param.tone_mapping == Tone_Mapping_Gamma);
+        AtlasMapper::generate_texture_atlases(
+                &texture_patches, &texture_atlases, param.tone_mapping == Tone_Mapping_Gamma);
         LOG_INFO(" - done");
     }
 
@@ -586,10 +608,11 @@ bool map_textures(MeshPtr input_mesh, MeshInfo &mesh_info, TextureViews &texture
     return true;
 }
 
-bool texture_from_dense_to_sparse_model(const __inner__::Mesh &sparse_mesh, const __inner__::Mesh &dense_mesh,
-                             const TexturePatches &texture_patches, const Parameter &param,
-                             const std::vector<FaceGroup> &planar_groups, const FaceSubdivisions &face_subdivisions,
-                             std::vector<TexturePatch::Ptr> *final_patches) {
+bool texture_from_dense_to_sparse_model(
+        const Parameter &param, const __inner__::Mesh &sparse_mesh, const __inner__::Mesh &dense_mesh,
+        const TexturePatches &texture_patches, const std::vector<FaceGroup> &planar_groups,
+        std::set<std::size_t> &irregular_patch_faces, const FaceSubdivisions &face_subdivisions,
+        std::vector<TexturePatch::Ptr> *final_patches) {
     using namespace MvsTexturing;
     // init texture coords and face materials
     std::vector<FloatImageConstPtr> dense_mesh_face_materials;
@@ -618,11 +641,22 @@ bool texture_from_dense_to_sparse_model(const __inner__::Mesh &sparse_mesh, cons
         }
     }
 
-    return MeshSimplification::create_plane_patches(sparse_mesh.m_vertices, sparse_mesh.m_faces, planar_groups,
+    int ret = MvsTexturing::MeshRepair::create_plane_patches_on_sparse_mesh(
+            param, sparse_mesh.m_vertices, sparse_mesh.m_faces, planar_groups,
+            dense_mesh.m_vertices, dense_mesh.m_faces, dense_mesh_face_texture_coords, dense_mesh_face_materials,
+            face_subdivisions, final_patches);
 
-                                                     dense_mesh.m_vertices, dense_mesh.m_faces,
-                                                     dense_mesh_face_texture_coords,
-                                                     dense_mesh_face_materials,
+    if (!ret) {
+        LOG_ERROR(" - texture_from_dense_to_sparse_model() : create plane patches failed");
+        return false;
+    }
 
-                                                     face_subdivisions, final_patches);
+    ret = MeshRepair::create_irregular_patches_on_spares_mesh(
+            sparse_mesh.m_vertices, sparse_mesh.m_faces, irregular_patch_faces,
+            dense_mesh_face_texture_coords, dense_mesh_face_materials, face_subdivisions, final_patches);
+    if (!ret) {
+        LOG_ERROR(" - texture_from_dense_to_sparse_model() : create irregular patches failed");
+        return false;
+    }
+    return true;
 }

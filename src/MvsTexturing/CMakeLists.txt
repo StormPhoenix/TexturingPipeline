@@ -37,4 +37,5 @@ target_link_libraries(${MvsTexturingLibrary}
         mve mve_util ${JPEG_LIBRARIES} ${PNG_LIBRARIES}
         ${TIFF_LIBRARIES} ${TBB_LIBRARIES}
         MeshPolyRefinement-Library
+        spdlog::spdlog
         OpenMP::OpenMP_CXX)

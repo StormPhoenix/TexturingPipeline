@@ -18,8 +18,10 @@
 namespace MvsTexturing {
     namespace Base {
 
+
         class TextureAtlas {
         public:
+            static const int kTextureAtlasPadding = 4;
             typedef std::shared_ptr<TextureAtlas> Ptr;
             typedef std::vector<std::size_t> Faces;
             typedef std::vector<std::size_t> TexcoordIds;
