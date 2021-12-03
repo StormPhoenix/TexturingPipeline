@@ -12,13 +12,17 @@
 #include <acc/bvh_tree.h>
 
 #include <mapmap/full.h>
+
 #define _USE_OPENMP
+
 #include <LBP.h>
 
 #include <Base/TriMesh.h>
 #include <DataIO/IO.h>
 #include <PlaneEstimation/RegionGrowing.h>
 #include <PlaneEstimation/RegionExpand.h>
+
+#include <common.h>
 
 #include "Base/View.h"
 #include "Base/FaceGroup.h"
@@ -117,7 +121,9 @@ namespace MvsTexturing {
                                     break;
                                 }
                             }
-                            if (!visible) continue;
+                            if (!visible) {
+                                continue;
+                            }
                         }
 
                         float total_angle = 0.5 * (viewing_angle + viewing_direction.dot(view_to_face_vec));
@@ -144,7 +150,7 @@ namespace MvsTexturing {
                     }
                 }
 
-                //std::sort(projected_face_view_infos.begin(), projected_face_view_infos.end());
+                std::sort(projected_face_view_infos.begin(), projected_face_view_infos.end());
 
 #pragma omp critical
                 {

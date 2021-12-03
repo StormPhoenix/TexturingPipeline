@@ -13,7 +13,7 @@
 
 namespace MvsTexturing {
     namespace SeamSmoother {
-        void global_seam_leveling(const Base::LabelGraph &graph,
+        bool global_seam_leveling(const Base::LabelGraph &graph,
                                   mve::TriangleMesh::ConstPtr mesh,
                                   const mve::MeshInfo &mesh_info,
                                   const std::vector<std::vector<Base::VertexProjectionInfo>> &vertex_projection_infos,

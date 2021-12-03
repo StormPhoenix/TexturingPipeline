@@ -33,6 +33,9 @@
 ### Problems
 
 - 待解决问题
+    - elephant 映射会出现奇怪黑斑
+        - 用 mapmap 或 projection 报纸都会乱（推测可能是 outlier 出现问题）
+    
     - 稀疏网格纹理重映射问题。网格重映射算法在 TextureRemeshing 已经被实现。但对于稀疏网格，对未被检测到平面的网格区域做重映射，
     会存在 one triangle (sparse) 跨 multiple triangle (dense) 的问题。这样就没办法把纹理合并起来。解决办法是：如果某部分网格没有被检测
     为平面，就不对这块区域的 triangle 做划分。可是这个办法太依赖输入网格的平面检测结果了。万一这个区域本身很稀疏却没有被检测为平面，一旦不划分，
@@ -118,10 +121,36 @@
     
 - elephant
     - WorkDirectory: /Users/stormphoenix/Workspace/Projects/CLionProjects/3dReconstruction/Dataset/elephant
-    - Options: --scene_file ./visualSFM/test.nvm --input_mesh ./Input/model_0.ply --output_prefix ./Output_TexturePipeline/model_proj --mrf_call_lib mapmap --outlier_removal gauss_clamping --method_type projection --keep_unseen_faces true --skip_hole_filling true
+    - Projection|无Outlier --scene_file ./visualSFM/test.nvm --input_mesh ./Input/model_0_labeled.ply --output_prefix ./Output_TexturePipeline/model_Projection --mrf_call_lib mapmap --method_type projection --keep_unseen_faces true --skip_hole_filling true --sparse_model=false --debug_mode=true
+    - Mapmap|无Outlier --scene_file ./visualSFM/test.nvm --input_mesh ./Input/model_0_labeled.ply --output_prefix ./Output_TexturePipeline/model_Mapmap_on-outlier --mrf_call_lib mapmap --method_type mrf --keep_unseen_faces true --skip_hole_filling true --sparse_model=false --debug_mode=true
     
 - elephant01    
     - WorkDirectory: /Users/stormphoenix/Workspace/Projects/CLionProjects/3dReconstruction/Dataset/elephant01
     - Projection Options: --scene_file ./visualSFM/model.nvm --input_mesh ./model_dense_vis2mesh_simplified.ply --output_prefix ./Output_TexturePipeline/model --mrf_call_lib mapmap --outlier_removal gauss_clamping --method_type projection --keep_unseen_faces true --skip_hole_filling true --sparse_model true
-    - OpenMVS Options: --scene_file ./visualSFM/model.nvm --input_mesh ./model_dense_vis2mesh_simplified.ply --output_prefix ./Output_TexturePipeline/model --mrf_call_lib openmvs --outlier_removal gauss_clamping --method_type mrf -- --keep_unseen_faces true --skip_hole_filling true --sparse_model true
-            
+    - OpenMVS: --scene_file ./visualSFM/model.nvm --input_mesh ./model_dense_vis2mesh_simplified.ply --output_prefix ./Output_TexturePipeline/model_openMVS --mrf_call_lib=openmvs --outlier_removal=gauss_clamping --method_type=mrf --keep_unseen_faces=true --skip_hole_filling=true --sparse_model=true --debug_mode=true
+    - Projection: --scene_file ./visualSFM/model.nvm --input_mesh ./model_dense_vis2mesh_simplified.ply --output_prefix ./Output_TexturePipeline/model_Projection --mrf_call_lib=openmvs --outlier_removal=gauss_clamping --method_type=projection --keep_unseen_faces=true --skip_hole_filling=true --sparse_model=true --debug_mode=true
+    
+    - AppOptions - 加密 | SeamLeveling | AddEdgePadding
+        - --scene_file=./visualSFM/model.nvm --input_mesh=./model_dense_vis2mesh_simplified.ply --output_prefix=./Output_TexturePipeline/Projection_SeamLeveling_EdgePadding --mrf_call_lib=mapmap --outlier_removal=gauss_clamping --method_type=projection --keep_unseen_faces=true --skip_hole_filling=true --skip_local_seam_leveling=false --sparse_model=true --debug_mode=true
+        - 结果一切正常
+        
+    - AppOptions - 加密 ｜ NotSeamLeveling | AddEdgePadding  
+        - --scene_file=./visualSFM/model.nvm --input_mesh=./model_dense_vis2mesh_simplified.ply --output_prefix=./Output_TexturePipeline/Projection_NotSeamLeveling_EdgePadding --mrf_call_lib=mapmap --outlier_removal=gauss_clamping --method_type=projection --keep_unseen_faces=true --skip_hole_filling=true --skip_local_seam_leveling=true --sparse_model=true --debug_mode=true
+        - 去掉 SeamLeveling，面片变成黑色    
+        
+        
+    - DebugOptions - 加密 ｜ SeamLeveling | AddEdgePadding
+        - --scene_file=./visualSFM/model.nvm --input_mesh=./model_debug.ply --output_prefix=./Output_TexturePipeline/Projection_SeamLeveling_EdgePadding --mrf_call_lib=mapmap --outlier_removal=gauss_clamping --method_type=projection --keep_unseen_faces=true --skip_hole_filling=true --skip_local_seam_leveling=false --sparse_model=true --debug_mode=true
+        - 结果一切正常
+    - DebugOptions - 加密 ｜ NotSeamLeveling | AddEdgePadding  
+        - --scene_file=./visualSFM/model.nvm --input_mesh=./model_debug.ply --output_prefix=./Output_TexturePipeline/Projection_NotSeamLeveling_EdgePadding --mrf_call_lib=mapmap --outlier_removal=gauss_clamping --method_type=projection --keep_unseen_faces=true --skip_hole_filling=true --skip_local_seam_leveling=true --sparse_model=true --debug_mode=true
+        - 去掉 SeamLeveling，面片变成黑色
+    - DebugOptions - 加密 ｜ SeamLeveling |  出现黑橙过渡颜色
+        - --scene_file=./visualSFM/model.nvm --input_mesh=./model_debug.ply --output_prefix=./Output_TexturePipeline/Projection_SeamLeveling --mrf_call_lib=mapmap --outlier_removal=gauss_clamping --method_type=projection --keep_unseen_faces=true --skip_hole_filling=true --skip_local_seam_leveling=false --sparse_model=true --debug_mode=true
+        - 去掉 EdgePadding，有 SeamLeveling，
+    - DebugOptions - 加密 ｜ NotSeamLeveling |  
+        - --scene_file=./visualSFM/model.nvm --input_mesh=./model_debug.ply --output_prefix=./Output_TexturePipeline/Projection_NotSeamLeveling --mrf_call_lib=mapmap --outlier_removal=gauss_clamping --method_type=projection --keep_unseen_faces=true --skip_hole_filling=true --skip_local_seam_leveling=true --sparse_model=true --debug_mode=true
+        - 去掉 SeamLeveling 和 EdgePadding，三角片变纯黑
+        
+    - DebugOptions - 加密 | SeamLeveling
+        - --scene_file=./visualSFM/model.nvm --input_mesh=./model_debug.ply --output_prefix=./Output_TexturePipeline/Mapmap_SeamLeveling --mrf_call_lib=mapmap --outlier_removal=gauss_clamping --method_type=mrf --keep_unseen_faces=true --skip_hole_filling=true --skip_local_seam_leveling=false --sparse_model=true --debug_mode=true --skip_global_seam_leveling=false

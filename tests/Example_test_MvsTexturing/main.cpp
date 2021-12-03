@@ -2,10 +2,13 @@
 // Created by Storm Phoenix on 2021/10/11.
 //
 #include <set>
+#include <sstream>
 #include <iostream>
 #include <boost/program_options.hpp>
 #include <common.h>
 
+#include <mve/image.h>
+#include <mve/image_io.h>
 #include <mve/image_tools.h>
 
 #include <Parameter.h>
@@ -247,7 +250,7 @@ int main(int argc, char **argv) {
                 MeshSubdivision::make_mesh_dense(origin_mesh.m_vertices, origin_mesh.m_faces, dense_mesh.m_vertices,
                                                  dense_mesh.m_faces, origin_mesh.m_face_colors,
                                                  dense_mesh.m_face_colors);
-                LOG_INFO(" - done, dense model prepared, vertices: {}, faces: {}",
+                LOG_INFO(" - done, get the dense model, vertices: {}, faces: {}",
                          dense_mesh.m_vertices.rows(), dense_mesh.m_faces.rows());
             }
 
@@ -309,7 +312,6 @@ int main(int argc, char **argv) {
             return 0;
         }
     }
-
     MeshInfo mesh_info(input_mesh);
     Builder::MVE::prepare_mesh(&mesh_info, input_mesh);
 
@@ -326,12 +328,32 @@ int main(int argc, char **argv) {
         }
     }
 
+    if (param.debug_mode) {
+        spdlog::set_level(spdlog::level::debug);
+
+        param.debug_dir = util::fs::join_path(output_dir, "debug_mode");
+        param.debug_primary_patch_dir = util::fs::join_path(param.debug_dir, "primary_patch");
+        param.debug_remapping_patch_dir = util::fs::join_path(param.debug_dir, "remapping_patch");
+
+        if (!util::fs::dir_exists(param.debug_dir.c_str())) {
+            util::fs::mkdir(param.debug_dir.c_str());
+        }
+
+        if (!util::fs::dir_exists(param.debug_primary_patch_dir.c_str())) {
+            util::fs::mkdir(param.debug_primary_patch_dir.c_str());
+        }
+
+        if (!util::fs::dir_exists(param.debug_remapping_patch_dir.c_str())) {
+            util::fs::mkdir(param.debug_remapping_patch_dir.c_str());
+        }
+    }
+
     // Read camera images
     LOG_INFO("###### MvsTexturing ------ Load scene ");
     std::vector<TextureView> texture_views;
     {
         util::WallTimer IO_timer;
-        LOG_INFO(" - read camera poses and images ... ");
+        LOG_INFO(" - read camera poses and images from {} ... ", param.scene_file);
         Builder::build_scene(param.scene_file, &texture_views, temp_dir);
         LOG_INFO(" - done. {} images loaded", texture_views.size());
     }
@@ -464,7 +486,7 @@ bool map_textures(MeshPtr input_mesh, MeshInfo &mesh_info, TextureViews &texture
     std::size_t const n_faces = input_mesh->get_faces().size() / 3;
     LabelGraph graph(n_faces);
     MvsTexturing::Builder::MVE::build_adjacency_graph(input_mesh, mesh_info, &graph);
-    LOG_INFO(" - done. adjacency graph info: {0} edges, {1} nodes", graph.num_edges(), graph.num_nodes());
+    LOG_INFO(" - done. adjacency graph info: {0} edges, {1} faces", graph.num_edges(), graph.num_nodes());
 
     LOG_INFO("###### MvsTexturing ------ View selection ");
     {
@@ -544,11 +566,29 @@ bool map_textures(MeshPtr input_mesh, MeshInfo &mesh_info, TextureViews &texture
                                               param, &vertex_projection_infos, &texture_patches);
         LOG_INFO(" - {} patches created", texture_patches.size());
 
+        if (texture_patches.size() <= 0) {
+            LOG_WARN(" - no primary texture generated");
+        }
+
+        if (param.debug_mode) {
+            if (texture_patches.size() > 0) {
+                TexturePatch::Ptr first_texture_patch = texture_patches[0];
+                const std::string output_name = util::fs::join_path(param.debug_primary_patch_dir, "0_.png");
+                mve::image::save_png_file(mve::image::float_to_byte_image(first_texture_patch->get_image()),
+                                          output_name);
+                LOG_DEBUG(" - save first primary patch: {}", output_name);
+            }
+        }
+
+        bool global_seam_leveling_success = false;
         if (!param.skip_global_seam_leveling) {
             LOG_INFO(" - global seam leveling started ... ");
-            SeamSmoother::global_seam_leveling(graph, input_mesh, mesh_info, vertex_projection_infos, &texture_patches);
+            global_seam_leveling_success = SeamSmoother::global_seam_leveling(
+                    graph, input_mesh, mesh_info, vertex_projection_infos, &texture_patches);
             LOG_INFO(" - global seam leveling done");
-        } else {
+        }
+
+        if ((!global_seam_leveling_success) || param.skip_global_seam_leveling) {
             LOG_INFO(" - calculating validity masks for texture patches... ");
 #pragma omp parallel for schedule(dynamic)
             for (std::size_t i = 0; i < texture_patches.size(); ++i) {
@@ -559,10 +599,32 @@ bool map_textures(MeshPtr input_mesh, MeshInfo &mesh_info, TextureViews &texture
             LOG_INFO(" - calculate validity masks done");
         }
 
+        if (param.debug_mode) {
+            if (texture_patches.size() > 0) {
+                TexturePatch::Ptr first_texture_patch = texture_patches[0];
+                const std::string output_name = util::fs::join_path(param.debug_primary_patch_dir,
+                                                                    "0_AdjustColor_.png");
+                mve::image::save_png_file(mve::image::float_to_byte_image(first_texture_patch->get_image()),
+                                          output_name);
+                LOG_DEBUG(" - save first adjusted color patch: {}", output_name);
+            }
+        }
+
         if (!param.skip_local_seam_leveling) {
             LOG_INFO(" - local seam leveling started ... ");
             SeamSmoother::local_seam_leveling(graph, input_mesh, vertex_projection_infos, &texture_patches);
             LOG_INFO(" - local seam leveling done");
+
+            if (param.debug_mode) {
+                if (texture_patches.size() > 0) {
+                    TexturePatch::Ptr first_texture_patch = texture_patches[0];
+                    const std::string output_name = util::fs::join_path(param.debug_primary_patch_dir,
+                                                                        "0_SeamLeveling_.png");
+                    mve::image::save_png_file(mve::image::float_to_byte_image(first_texture_patch->get_image()),
+                                              output_name);
+                    LOG_DEBUG(" - save first seam leveling patch: {}", output_name);
+                }
+            }
         }
 
         if (param.sparse_model) {
@@ -577,7 +639,32 @@ bool map_textures(MeshPtr input_mesh, MeshInfo &mesh_info, TextureViews &texture
                 return false;
             }
             texture_patches.swap(final_texture_patches);
-            LOG_INFO(" - done");
+            LOG_INFO(" - done. {} sparse texture patches generated.", texture_patches.size());
+
+            if (param.debug_mode) {
+                if (texture_patches.size() > 0) {
+                    int patch_index = 0;
+                    int max_area = 0;
+                    for (int i = 0; i < texture_patches.size(); i++) {
+                        TexturePatch::Ptr patch = texture_patches[i];
+                        const int area = patch->get_width() * patch->get_height();
+                        if (max_area < area) {
+                            max_area = area;
+                            patch_index = i;
+                        }
+                    }
+                    std::stringstream ss;
+                    ss << patch_index << "_.png";
+
+                    std::string output_name;
+                    ss >> output_name;
+                    output_name = util::fs::join_path(param.debug_remapping_patch_dir, output_name);
+
+                    mve::image::save_png_file(
+                            mve::image::float_to_byte_image(texture_patches[patch_index]->get_image()), output_name);
+                    LOG_DEBUG(" - save remapping patch: {}", output_name);
+                }
+            }
         }
     }
 
@@ -586,10 +673,10 @@ bool map_textures(MeshPtr input_mesh, MeshInfo &mesh_info, TextureViews &texture
     {
         using namespace MvsTexturing;
         util::WallTimer timer;
-        LOG_INFO(" - generating ... ");
+        LOG_INFO(" - atlases are generating ... ");
         AtlasMapper::generate_texture_atlases(
                 &texture_patches, &texture_atlases, param.tone_mapping == Tone_Mapping_Gamma);
-        LOG_INFO(" - done");
+        LOG_INFO(" - done, {} atlases generated.", texture_atlases.size());
     }
 
     LOG_INFO("###### MvsTexturing ------ Write obj model");
@@ -602,7 +689,7 @@ bool map_textures(MeshPtr input_mesh, MeshInfo &mesh_info, TextureViews &texture
             input_mesh = MvsTexturing::Utils::eigenMesh_to_mveMesh(origin_mesh.m_vertices, origin_mesh.m_faces);
             MvsTexturing::IO::MVE::save_obj_mesh(param.output_prefix, input_mesh, texture_atlases);
         }
-        LOG_INFO(" - writing model done");
+        LOG_INFO(" - done: {}.obj", param.output_prefix);
     }
 
     return true;
@@ -650,6 +737,8 @@ bool texture_from_dense_to_sparse_model(
         LOG_ERROR(" - texture_from_dense_to_sparse_model() : create plane patches failed");
         return false;
     }
+    const int n_plane_patches_size = final_patches->size();
+    LOG_DEBUG(" - done, {} plane patches created. ", final_patches->size());
 
     ret = MeshRepair::create_irregular_patches_on_spares_mesh(
             sparse_mesh.m_vertices, sparse_mesh.m_faces, irregular_patch_faces,
@@ -658,5 +747,6 @@ bool texture_from_dense_to_sparse_model(
         LOG_ERROR(" - texture_from_dense_to_sparse_model() : create irregular patches failed");
         return false;
     }
+    LOG_DEBUG(" - done, {} irregular patches created. ", final_patches->size() - n_plane_patches_size);
     return true;
 }

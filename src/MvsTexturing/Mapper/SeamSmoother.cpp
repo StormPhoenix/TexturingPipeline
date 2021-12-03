@@ -4,6 +4,7 @@
 
 #include <set>
 #include <map>
+#include <common.h>
 #include <iostream>
 
 #include <util/timer.h>
@@ -172,7 +173,7 @@ namespace MvsTexturing {
             }
         }
 
-        void global_seam_leveling(const Base::LabelGraph &graph,
+        bool global_seam_leveling(const Base::LabelGraph &graph,
                                   mve::TriangleMesh::ConstPtr mesh,
                                   const MeshInfo &mesh_info,
                                   const VertexProjectionInfoList &vertex_projection_infos,
@@ -207,6 +208,12 @@ namespace MvsTexturing {
                     ++x_row;
                 }
             }
+
+            if (x_row == 0) {
+                LOG_WARN(" - all face labels are zero");
+                return false;
+            }
+
             std::size_t x_rows = x_row;
             assert(x_rows < static_cast<std::size_t>(std::numeric_limits<int>::max()));
 
@@ -353,6 +360,8 @@ namespace MvsTexturing {
 
                 texture_patch->adjust_colors(patch_adjust_values);
             }
+
+            return true;
         }
 
         math::Vec3f mean_color_of_edge_point(const EdgeProjectionInfoList &edge_projection_infos,
@@ -503,6 +512,10 @@ namespace MvsTexturing {
                 std::vector<MeshEdge> seam_edges;
                 // 在 mesh 上依据 face 联通性和打上的 label 检查 seam_edges
                 find_seam_edges(graph, mesh, &seam_edges);
+                if (seam_edges.size() == 0) {
+                    LOG_WARN(" - texture has not seam edges");
+                    return;
+                }
                 edge_colors.resize(seam_edges.size());
                 edge_projection_infos.resize(seam_edges.size());
                 for (std::size_t i = 0; i < seam_edges.size(); ++i) {

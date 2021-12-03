@@ -199,8 +199,8 @@ namespace MvsTexturing {
                 float random_color[3];
                 if (param.debug_mode) {
                     random_color[0] = double(1.0);
-                    random_color[1] = double(0);
-                    random_color[2] = double(0);
+                    random_color[1] = double(0.0);
+                    random_color[2] = double(0.0);
                 } else {
                     random_color[0] = double(0);
                     random_color[1] = double(0);
@@ -572,7 +572,7 @@ namespace MvsTexturing {
             return true;
         }
 
-        void find_connected_face_group(const IndexMatrix &ff_adjacency, const std::set<std::size_t> &outlier_faces,
+        void find_connected_face_group(const IndexMatrix &ff_adjacency, const std::set<std::size_t> &faces_set,
                                        const int face_index, std::set<std::size_t> &face_group) {
             /**
             * first level classification
@@ -580,7 +580,7 @@ namespace MvsTexturing {
             */
 
             if (face_index == -1 ||
-                (outlier_faces.find(std::size_t(face_index)) == outlier_faces.end())) {
+                (faces_set.find(std::size_t(face_index)) == faces_set.end())) {
                 return;
             }
 
@@ -592,7 +592,6 @@ namespace MvsTexturing {
                 q.pop();
 
                 face_group.insert(std::size_t(next_f_index));
-                visited.insert(next_f_index);
                 // find adjacent face index
                 for (int i = 0; i < 3; i++) {
                     int adj_f_index = ff_adjacency(next_f_index, i);
@@ -604,11 +603,12 @@ namespace MvsTexturing {
                         continue;
                     }
 
-                    if (outlier_faces.find(adj_f_index) == outlier_faces.end()) {
+                    if (faces_set.find(adj_f_index) == faces_set.end()) {
                         continue;
                     }
 
                     q.push(adj_f_index);
+                    visited.insert(adj_f_index);
                 }
             }
         };
@@ -628,12 +628,12 @@ namespace MvsTexturing {
 
             std::vector<std::set<std::size_t>> irregular_patches;
             while (!irregular_patch_faces.empty()) {
-                std::size_t off_plane_face_index = (*irregular_patch_faces.begin());
+                std::size_t face_index = (*irregular_patch_faces.begin());
                 irregular_patches.push_back(std::set<std::size_t>());
 
                 // find connected faces
                 find_connected_face_group(ff_adjacency, irregular_patch_faces,
-                                          off_plane_face_index, irregular_patches.back());
+                                          face_index, irregular_patches.back());
                 for (auto f_index : irregular_patches.back()) {
                     irregular_patch_faces.erase(f_index);
                 }

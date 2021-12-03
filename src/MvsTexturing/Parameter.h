@@ -49,7 +49,11 @@ namespace MvsTexturing {
         double min_plane_size;
 
         bool sparse_model = false;
+
         bool debug_mode = false;
+        std::string debug_dir;
+        std::string debug_primary_patch_dir;
+        std::string debug_remapping_patch_dir;
     };
 }
 

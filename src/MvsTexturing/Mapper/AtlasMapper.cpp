@@ -7,6 +7,8 @@
 #include <iostream>
 #include <fstream>
 
+#include "common.h"
+
 #include <mve/mesh.h>
 #include <mve/mesh_info.h>
 #include <mve/image_tools.h>
@@ -29,7 +31,7 @@ namespace MvsTexturing {
 
 #define MAX_TEXTURE_SIZE (8 * 1024)
 #define PREF_TEXTURE_SIZE (4 * 1024)
-#define MIN_TEXTURE_SIZE (4 * 1024)
+#define MIN_TEXTURE_SIZE (2 * 1024)
 
         template<typename T>
         T clamp_nan_low(T const &v, T const &lo, T const &hi) {
@@ -63,6 +65,7 @@ namespace MvsTexturing {
             mve::TriangleMesh::VertexList const &vertices = mesh->get_vertices();
 
             std::map<std::size_t, std::set<std::size_t> > tmp;
+
             for (std::size_t const face_id : hole) {
                 std::size_t const v0 = mesh_faces[face_id * 3 + 0];
                 std::size_t const v1 = mesh_faces[face_id * 3 + 1];
@@ -598,7 +601,12 @@ namespace MvsTexturing {
                 }
 
                 if (!unseen_faces.empty()) {
-                    mve::FloatImage::Ptr image = mve::FloatImage::create(3, 3, 3);
+                    mve::FloatImage::Ptr image = mve::FloatImage::create(4, 4, 3);
+                    if (param.debug_mode) {
+                        float debug_color[3] = {1.0f, 1.0f, 0.0f};
+                        image->fill_color(debug_color);
+                    }
+
                     std::vector<math::Vec2f> texcoords;
                     for (std::size_t i = 0; i < unseen_faces.size(); ++i) {
                         math::Vec2f projections[] = {{2.0f, 1.0f},
@@ -670,7 +678,7 @@ namespace MvsTexturing {
                 if (size > PREF_TEXTURE_SIZE &&
                     max_width < PREF_TEXTURE_SIZE &&
                     max_height < PREF_TEXTURE_SIZE &&
-                    total_area / (PREF_TEXTURE_SIZE * PREF_TEXTURE_SIZE) < 0.5) {
+                    total_area / (PREF_TEXTURE_SIZE * PREF_TEXTURE_SIZE) < 2.0) {
                     size = PREF_TEXTURE_SIZE;
                     continue;
                 }

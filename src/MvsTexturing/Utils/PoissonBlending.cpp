@@ -6,6 +6,7 @@
 #include <math/vector.h>
 #include <Eigen/SparseCore>
 #include <Eigen/SparseLU>
+#include <common.h>
 
 #include "PoissonBleding.h"
 
@@ -46,6 +47,27 @@ namespace MvsTexturing {
         void
         poisson_blend(mve::FloatImage::ConstPtr src, mve::ByteImage::ConstPtr mask,
                       mve::FloatImage::Ptr dest, float alpha) {
+            if (!(src->width() == mask->width() && mask->width() == dest->width())) {
+                LOG_ERROR(" - src's width is not match with mask's, src_width: {}, mask_width: {}, dest_width",
+                          src->width(), mask->width(), dest->width());
+            }
+
+            if (!(src->height() == mask->height() && mask->height() == dest->height())) {
+                LOG_ERROR(" - src's height is not match with mask's, src_height: {}, mask_height: {}, dest_height",
+                          src->height(), mask->height(), dest->height());
+            }
+
+            if (!(src->channels() == 3 && dest->channels() == 3)) {
+                LOG_ERROR(" - src and dest's chanel is three");
+            }
+
+            if (!(mask->channels() == 1)) {
+                LOG_ERROR(" - mask's channels is not one");
+            }
+
+            if (!(valid_mask(mask))) {
+                LOG_ERROR(" - mask not valid");
+            }
 
             assert(src->width() == mask->width() && mask->width() == dest->width());
             assert(src->height() == mask->height() && mask->height() == dest->height());

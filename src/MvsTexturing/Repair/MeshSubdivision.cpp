@@ -237,8 +237,9 @@ namespace MvsTexturing {
                 return true;
             }
             // TODO 加密程度
-//        const double Length_Threshold = 0.09;
-            const double Length_Threshold = 0.03;
+            // TODO delete
+        const double Length_Threshold = 0.09;
+//            const double Length_Threshold = 0.03;
             if (edge_heap[0].len < Length_Threshold) {
                 return true;
             }
