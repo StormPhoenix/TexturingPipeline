@@ -674,8 +674,8 @@ bool map_textures(MeshPtr input_mesh, MeshInfo &mesh_info, TextureViews &texture
         using namespace MvsTexturing;
         util::WallTimer timer;
         LOG_INFO(" - atlases are generating ... ");
-        AtlasMapper::generate_texture_atlases(
-                &texture_patches, &texture_atlases, param.tone_mapping == Tone_Mapping_Gamma);
+        AtlasMapper::generate_texture_atlases(param, &texture_patches, &texture_atlases,
+                                              param.tone_mapping == Tone_Mapping_Gamma);
         LOG_INFO(" - done, {} atlases generated.", texture_atlases.size());
     }
 

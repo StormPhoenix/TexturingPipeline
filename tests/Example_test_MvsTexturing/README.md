@@ -138,7 +138,6 @@
         - --scene_file=./visualSFM/model.nvm --input_mesh=./model_dense_vis2mesh_simplified.ply --output_prefix=./Output_TexturePipeline/Projection_NotSeamLeveling_EdgePadding --mrf_call_lib=mapmap --outlier_removal=gauss_clamping --method_type=projection --keep_unseen_faces=true --skip_hole_filling=true --skip_local_seam_leveling=true --sparse_model=true --debug_mode=true
         - 去掉 SeamLeveling，面片变成黑色    
         
-        
     - DebugOptions - 加密 ｜ SeamLeveling | AddEdgePadding
         - --scene_file=./visualSFM/model.nvm --input_mesh=./model_debug.ply --output_prefix=./Output_TexturePipeline/Projection_SeamLeveling_EdgePadding --mrf_call_lib=mapmap --outlier_removal=gauss_clamping --method_type=projection --keep_unseen_faces=true --skip_hole_filling=true --skip_local_seam_leveling=false --sparse_model=true --debug_mode=true
         - 结果一切正常
@@ -154,3 +153,9 @@
         
     - DebugOptions - 加密 | SeamLeveling
         - --scene_file=./visualSFM/model.nvm --input_mesh=./model_debug.ply --output_prefix=./Output_TexturePipeline/Mapmap_SeamLeveling --mrf_call_lib=mapmap --outlier_removal=gauss_clamping --method_type=mrf --keep_unseen_faces=true --skip_hole_filling=true --skip_local_seam_leveling=false --sparse_model=true --debug_mode=true --skip_global_seam_leveling=false
+
+- haidian_model
+    - AppOptions: 
+        --scene_file=./visualSFM/model.nvm --input_mesh=./model_dense_vis2mesh_simplified1.ply --output_prefix=./Output_TexturePipeline/model --mrf_call_lib=mapmap --outlier_removal=gauss_clamping --method_type=projection --keep_unseen_faces=true --skip_hole_filling=true --skip_local_seam_leveling=false --sparse_model=true --debug_mode=true
+    - Directory:
+        /Users/stormphoenix/Workspace/Projects/CLionProjects/3dReconstruction/Dataset/haidian_model

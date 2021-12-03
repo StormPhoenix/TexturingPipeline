@@ -25,7 +25,8 @@ namespace MvsTexturing {
                                       std::vector<std::vector<Base::VertexProjectionInfo>> *vertex_projection_infos,
                                       std::vector<Base::TexturePatch::Ptr> *texture_patches);
 
-        void generate_texture_atlases(std::vector<Base::TexturePatch::Ptr> *orig_texture_patches,
+        void generate_texture_atlases(const Parameter &param,
+                                      std::vector<Base::TexturePatch::Ptr> *orig_texture_patches,
                                       std::vector<Base::TextureAtlas::Ptr> *texture_atlases,
                                       bool tone_mapping_gamma = false);
     }

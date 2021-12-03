@@ -42,7 +42,23 @@ namespace MvsTexturing {
 
             bool insert(TexturePatch::ConstPtr texture_patch);
 
+
             void finalize(void);
+
+            void set_name(const std::string &output_prefix, std::size_t index);
+
+            const std::string &get_name() const {
+                return name;
+            }
+
+
+            const std::string &get_save_path() const {
+                return save_path;
+            }
+
+            void save();
+
+            void release_image();
 
         private:
             unsigned int const size;
@@ -55,6 +71,9 @@ namespace MvsTexturing {
 
             mve::ByteImage::Ptr image;
             mve::ByteImage::Ptr validity_mask;
+
+            std::string name;
+            std::string save_path;
 
             RectBin::Ptr bin;
 

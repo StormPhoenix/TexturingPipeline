@@ -4,6 +4,7 @@
 
 #include <set>
 #include <map>
+#include <common.h>
 
 #include <util/file_system.h>
 #include <mve/image_tools.h>
@@ -248,6 +249,39 @@ namespace MvsTexturing {
             this->merge_texcoords();
 
             this->finalized = true;
+        }
+
+        void TextureAtlas::set_name(const std::string &output_prefix, std::size_t index) {
+            std::string prefix = "";
+            {
+                std::size_t dotpos = output_prefix.find_last_of('.');
+                if (dotpos == std::string::npos || dotpos == 0) {
+                    prefix = output_prefix;
+                } else {
+                    prefix = output_prefix.substr(0, dotpos);
+                }
+            }
+
+            const std::string diffuse_map_postfix = "_material" + util::string::get_filled(index, 4) + "_map_Kd.png";
+
+            name = util::fs::basename(prefix) + diffuse_map_postfix;
+            save_path = prefix + diffuse_map_postfix;
+        }
+
+        void TextureAtlas::save() {
+            if (image == nullptr) {
+                LOG_ERROR(" - can not save null image: {}", name);
+                return;
+            }
+            mve::image::save_png_file(image, save_path);
+        }
+
+        void TextureAtlas::release_image() {
+            if (image == nullptr) {
+                LOG_ERROR(" - can not release null image: {}", name);
+                return;
+            }
+            image.reset();
         }
     }
 }

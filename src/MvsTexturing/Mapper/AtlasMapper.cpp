@@ -702,9 +702,8 @@ namespace MvsTexturing {
             return first->get_size() > second->get_size();
         }
 
-        void generate_texture_atlases(TexturePatchList *orig_texture_patches,
-                                      TextureAtlasList *texture_atlases,
-                                      bool tone_mapping_gamma) {
+        void generate_texture_atlases(const Parameter &param, TexturePatchList *orig_texture_patches,
+                                      TextureAtlasList *texture_atlases, bool tone_mapping_gamma) {
             std::list<Base::TexturePatch::ConstPtr> texture_patches;
             while (!orig_texture_patches->empty()) {
                 Base::TexturePatch::Ptr texture_patch = orig_texture_patches->back();
@@ -735,6 +734,7 @@ namespace MvsTexturing {
 
                         texture_atlases->push_back(Base::TextureAtlas::create(texture_size));
                         Base::TextureAtlas::Ptr texture_atlas = texture_atlases->back();
+                        texture_atlas->set_name(param.output_prefix, texture_atlases->size() - 1);
 
                         /* Try to insert each of the texture patches into the texture atlas. */
                         std::list<Base::TexturePatch::ConstPtr>::iterator it = texture_patches.begin();
@@ -755,7 +755,13 @@ namespace MvsTexturing {
                         }
 
 #pragma omp task
-                        texture_atlas->finalize();
+                        {
+                            texture_atlas->finalize();
+                            texture_atlas->save();
+                            LOG_DEBUG(" - texture atlas saved: {}", texture_atlas->get_save_path());
+                            texture_atlas->release_image();
+                            LOG_DEBUG(" - texture atlas released: {}", texture_atlas->get_name());
+                        }
                     }
 
                     util::WallTimer timer;
