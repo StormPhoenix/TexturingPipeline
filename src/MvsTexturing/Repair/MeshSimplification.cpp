@@ -13,12 +13,11 @@
 #include <igl/fit_plane.h>
 #include <igl/parallel_for.h>
 #include <igl/triangle_triangle_adjacency.h>
-
 #include <mve/image_tools.h>
-
 #include <common.h>
-
 #include "MeshSimplification.h"
+
+#define MAX_PATCH_SIZE (1 * 1024)
 
 namespace MvsTexturing {
     namespace MeshRepair {
@@ -74,6 +73,60 @@ namespace MvsTexturing {
                     }
                 }
             };
+
+            enum SplitType {
+                NOT_SPLIT,
+                VERTIAL_SPLIT,
+                HORIZONTAL_SPLIT
+            };
+        }
+
+        using TexturePatch = MvsTexturing::Base::TexturePatch;
+
+        __inner__::SplitType need_split(TexturePatch::Ptr patch) {
+            using namespace __inner__;
+            if (patch == nullptr) {
+                return NOT_SPLIT;
+            }
+
+            int max_size = std::max(patch->get_width(), patch->get_height());
+            if (max_size <= MAX_PATCH_SIZE) {
+                return NOT_SPLIT;
+            }
+
+            if (patch->get_width() > patch->get_height()) {
+                return HORIZONTAL_SPLIT;
+            } else {
+                return VERTIAL_SPLIT;
+            }
+        }
+
+        void split_bigger_patch(TexturePatch::Ptr bigger_patch, std::vector<TexturePatch::Ptr> &result) {
+            using namespace __inner__;
+
+            std::vector<TexturePatch::Ptr> patches, tmp_patches;
+            patches.push_back(bigger_patch);
+
+            while ((!patches.empty()) || (!tmp_patches.empty())) {
+                for (int i = patches.size() - 1; i >= 0; i--) {
+                    TexturePatch::Ptr patch = patches[i];
+                    patches.pop_back();
+
+                    bool split_result = false;
+                    SplitType split_type = need_split(patch);
+                    if (split_type == VERTIAL_SPLIT) {
+                        split_result = patch->split_vertical(tmp_patches);
+                    } else if (split_type == HORIZONTAL_SPLIT) {
+                        split_result = patch->split_horizontal(tmp_patches);
+                    }
+
+                    if ((split_type == NOT_SPLIT) || (!split_result)) {
+                        result.push_back(patch);
+                        continue;
+                    }
+                }
+                patches.swap(tmp_patches);
+            }
         }
 
         bool create_plane_patches_on_sparse_mesh(
@@ -373,6 +426,23 @@ namespace MvsTexturing {
                                                                  patch_image);
 
                 final_texture_patches->push_back(patch);
+            }
+
+            LOG_DEBUG(" - begin split bigger patches ... ");
+            {
+                // split bigger patches
+                std::vector<TexturePatch::Ptr> tmp_patches;
+                for (int i = final_texture_patches->size() - 1; i >= 0; i--) {
+                    TexturePatch::Ptr patch = (*final_texture_patches)[i];
+                    final_texture_patches->pop_back();
+                    split_bigger_patch(patch, tmp_patches);
+                }
+
+                LOG_DEBUG(" - add all split patches ... ");
+                for (int i = tmp_patches.size() - 1; i >= 0; i--) {
+                    TexturePatch::Ptr patch = tmp_patches[i];
+                    final_texture_patches->push_back(patch);
+                }
             }
 
 #pragma omp parallel for schedule(dynamic)

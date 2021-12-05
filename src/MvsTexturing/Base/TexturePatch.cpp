@@ -4,12 +4,15 @@
 
 #include <set>
 
+#include <common.h>
+
 #include <math/functions.h>
 #include <mve/image_color.h>
 #include <mve/image_tools.h>
 #include <mve/mesh_io_ply.h>
 
 #include "TexturePatch.h"
+#include "Utils/Utils.h"
 #include "Utils/PoissonBleding.h"
 
 namespace MvsTexturing {
@@ -194,8 +197,7 @@ namespace MvsTexturing {
         typedef std::vector<std::pair<int, int> > PixelVector;
         typedef std::set<std::pair<int, int> > PixelSet;
 
-        void
-        TexturePatch::prepare_blending_mask(std::size_t strip_width){
+        void TexturePatch::prepare_blending_mask(std::size_t strip_width) {
             int const width = blending_mask->width();
             int const height = blending_mask->height();
 
@@ -298,6 +300,275 @@ namespace MvsTexturing {
 
                 blending_mask->at(x, y, 0) = 128;
             }
+        }
+
+        namespace __inner__ {
+            const int kDirectionVertical = 0;
+            const int kDirectionHorizontal = 1;
+
+            struct area1d {
+                int start = -1;
+                int length = -1;
+                bool init = false;
+            };
+
+            enum order {
+                FIRST,
+                SECOND
+            };
+
+            order choose_belong_area(double *data, int size, int boundary) {
+                double max_first_area = -1.0;
+                double max_second_area = -1.0;
+
+                for (std::size_t i = 0; i < size; i++) {
+                    double coord = data[i];
+
+                    if (coord <= double(boundary)) {
+                        // first area
+                        max_first_area = std::max(max_first_area, (double(boundary) - coord));
+                    } else {
+                        // second area
+                        max_second_area = std::max(max_second_area, (coord - double(boundary)));
+                    }
+                }
+
+                if (max_first_area > max_second_area) {
+                    return FIRST;
+                } else {
+                    return SECOND;
+                }
+            }
+
+            void update_area(double *data, int size, area1d &area) {
+                if (size == 0) {
+                    return;
+                }
+
+                double _min = data[0];
+                double _max = data[0];
+                for (int i = 1; i < size; i++) {
+                    _min = std::min(_min, data[i]);
+                    _max = std::max(_max, data[i]);
+                }
+
+                if (!area.init) {
+                    area.start = static_cast<int>(std::floor(_min));
+                    area.length = static_cast<int>(std::ceil(_max)) - area.start + 1;
+                    area.init = true;
+                    return;
+                }
+
+                double area_start = area.start;
+                double area_end = area_start + area.length - 1;
+
+                area_end = std::max(area_end, _max);
+                area_start = std::min(area_start, _min);
+
+                area.start = static_cast<int>(std::floor(area_start));
+                area.length = static_cast<int>(std::ceil(area_end)) - area.start + 1;
+            }
+        }
+
+        bool TexturePatch::split(std::vector<TexturePatch::Ptr> &results, int direction) {
+            int mid = 0;
+            int texcoord_channel = 0;
+            int other_texcoord_channel = 0;
+            std::size_t total_patch_size = 0;
+            if (direction == __inner__::kDirectionVertical) {
+                mid = get_height() / 2;
+                texcoord_channel = 1;
+                other_texcoord_channel = 0;
+                total_patch_size = get_height();
+            } else if (direction == __inner__::kDirectionHorizontal) {
+                mid = get_width() / 2;
+                texcoord_channel = 0;
+                other_texcoord_channel = 1;
+                total_patch_size = get_width();
+            } else {
+                return false;
+            }
+
+            __inner__::area1d first_area, second_area;
+            std::vector<std::size_t> first_face_indices;
+            std::vector<math::Vec2f> first_texcoords;
+
+            std::vector<std::size_t> second_face_indices;
+            std::vector<math::Vec2f> second_texcoords;
+
+            for (std::size_t face_index = 0; face_index < faces.size(); face_index++) {
+                std::size_t face_id = faces[face_index];
+
+                double coord_data[3];
+                for (int i = 0; i < 3; i++) {
+                    coord_data[i] = texcoords[face_index * 3 + i][texcoord_channel];
+                }
+
+                __inner__::order selected_area = __inner__::choose_belong_area(coord_data, 3, mid);
+                if (selected_area == __inner__::FIRST) {
+                    first_face_indices.push_back(face_id);
+                    for (std::size_t i = 0; i < 3; i++) {
+                        first_texcoords.push_back(texcoords[face_index * 3 + i]);
+                    }
+                    __inner__::update_area(coord_data, 3, first_area);
+                } else {
+                    second_face_indices.push_back(face_id);
+                    for (std::size_t i = 0; i < 3; i++) {
+                        second_texcoords.push_back(texcoords[face_index * 3 + i]);
+                    }
+                    __inner__::update_area(coord_data, 3, second_area);
+                }
+            }
+
+            int overlap_size = (first_area.start + first_area.length - 1) - (second_area.start) + 1;
+            double overlap_rate = double(overlap_size) / double(total_patch_size);
+            if (overlap_size >= 0 && overlap_rate > 0.5) {
+                return false;
+            }
+
+
+            if ((first_area.start < 0 || (first_area.start + first_area.length) > total_patch_size) ||
+                (second_area.start < 0 || (second_area.start + second_area.length) > total_patch_size)) {
+                LOG_ERROR(" - split patch out of range");
+                return false;
+            }
+
+            // compute another direction range
+            int first_other_direction_start = std::max(get_width(), get_height());
+            int first_other_direction_end = -1;
+            int second_other_direction_start = std::max(get_width(), get_height());
+            int second_other_direction_end = -1;
+            {
+
+                for (std::size_t i = 0; i < first_texcoords.size(); i++) {
+                    double coord = first_texcoords[i][other_texcoord_channel];
+                    first_other_direction_start = std::min(
+                            first_other_direction_start, static_cast<int>(std::floor(coord)));
+
+                    first_other_direction_end = std::max(
+                            first_other_direction_end, static_cast<int>(std::ceil(coord)));
+                }
+
+                for (std::size_t i = 0; i < second_texcoords.size(); i++) {
+                    double coord = second_texcoords[i][other_texcoord_channel];
+                    second_other_direction_start = std::min(
+                            second_other_direction_start, static_cast<int>(std::floor(coord)));
+
+                    second_other_direction_end = std::max(
+                            second_other_direction_end, static_cast<int>(std::ceil(coord)));
+                }
+
+                int kOtherDirectionMaxSize = 0;
+                if (direction == __inner__::kDirectionVertical) {
+                    kOtherDirectionMaxSize = get_width() - 1;
+                } else if (direction == __inner__::kDirectionHorizontal) {
+                    kOtherDirectionMaxSize = get_height() - 1;
+                } else {
+                    LOG_ERROR(" - split direction error");
+                }
+
+                first_other_direction_start = Utils::clamp(first_other_direction_start, 0, kOtherDirectionMaxSize);
+                first_other_direction_end = Utils::clamp(first_other_direction_end, 0, kOtherDirectionMaxSize);
+
+                second_other_direction_start = Utils::clamp(second_other_direction_start, 0, kOtherDirectionMaxSize);
+                second_other_direction_end = Utils::clamp(second_other_direction_end, 0, kOtherDirectionMaxSize);
+            }
+
+            // create first patch image
+            TexturePatch::Ptr first_sub_patch = nullptr;
+            {
+                if (direction == __inner__::kDirectionVertical) {
+                    first_sub_patch = create_sub_patch(
+                            first_other_direction_start, first_other_direction_end,
+                            first_area.start, first_area.start + first_area.length - 1,
+                            first_face_indices, first_texcoords);
+                } else if (direction == __inner__::kDirectionHorizontal) {
+                    first_sub_patch = create_sub_patch(
+                            first_area.start, first_area.start + first_area.length - 1,
+                            first_other_direction_start, first_other_direction_end,
+                            first_face_indices, first_texcoords);
+                }
+
+            }
+
+            if (first_sub_patch != nullptr) {
+                results.push_back(first_sub_patch);
+            }
+
+            // create right patch image
+            TexturePatch::Ptr second_sub_patch = nullptr;
+            {
+                if (direction == __inner__::kDirectionVertical) {
+                    second_sub_patch = create_sub_patch(
+                            second_other_direction_start, second_other_direction_end, second_area.start,
+                            second_area.start + second_area.length - 1,
+                            second_face_indices, second_texcoords);
+                } else if (direction == __inner__::kDirectionHorizontal) {
+                    second_sub_patch = create_sub_patch(
+                            second_area.start, second_area.start + second_area.length - 1,
+                            second_other_direction_start, second_other_direction_end,
+                            second_face_indices, second_texcoords);
+                }
+            }
+
+            if (second_sub_patch != nullptr) {
+                results.push_back(second_sub_patch);
+            }
+
+            if (first_sub_patch == nullptr && second_sub_patch == nullptr) {
+                return false;
+            } else {
+                if ((first_sub_patch == nullptr && second_sub_patch != nullptr) ||
+                    (first_sub_patch != nullptr && second_sub_patch == nullptr)) {
+                    LOG_WARN(" - texture patch split odd, one sub-patch is null but the another is not.");
+                }
+                return true;
+            }
+        }
+
+        bool TexturePatch::split_vertical(std::vector<TexturePatch::Ptr> &results) {
+            return split(results, __inner__::kDirectionVertical);
+        }
+
+        bool TexturePatch::split_horizontal(std::vector<TexturePatch::Ptr> &results) {
+            return split(results, __inner__::kDirectionHorizontal);
+        }
+
+        TexturePatch::Ptr TexturePatch::create_sub_patch(
+                int left, int right, int bottom, int top, std::vector<size_t> &face_indices,
+                std::vector<math::Vec2f> &texcoords) {
+            if (face_indices.size() <= 0 || texcoords.size() <= 0) {
+                return nullptr;
+            }
+
+            if (left > right || bottom > top) {
+                return nullptr;
+            }
+
+            int min_x, min_y;
+            int max_x, max_y;
+
+            // considering padding
+            min_x = std::max((left - kTexturePatchPadding), 0);
+            max_x = std::min((right + kTexturePatchPadding), get_width() - 1);
+
+            min_y = std::max((bottom - kTexturePatchPadding), 0);
+            max_y = std::min((top + kTexturePatchPadding), get_height() - 1);
+
+            int patch_width, patch_height;
+            patch_width = max_x - min_x + 1;
+            patch_height = max_y - min_y + 1;
+
+            mve::FloatImage::Ptr crop_image = mve::image::crop(
+                    image, patch_width, patch_height, min_x, min_y, *math::Vec3f(1.0, 0, 1.0));
+
+            // modify texture coords
+            math::Vec2f _min(min_x, min_y);
+            for (std::size_t i = 0; i < texcoords.size(); i++) {
+                texcoords[i] = texcoords[i] - _min;
+            }
+
+            return create(0, face_indices, texcoords, crop_image);
         }
     }
 }

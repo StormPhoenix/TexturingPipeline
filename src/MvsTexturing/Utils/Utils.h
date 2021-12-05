@@ -64,6 +64,19 @@ namespace MvsTexturing {
             return "th";
         }
 
+        template <typename T>
+        T clamp(T val, T min, T max) {
+            if (val < min) {
+                return min;
+            }
+
+            if (val > max) {
+                return max;
+            }
+
+            return val;
+        }
+
         template<typename T>
         void write_vector_to_csv(std::string const &filename, std::vector<T> const &vector, std::string const &header) {
             std::ofstream out(filename.c_str());

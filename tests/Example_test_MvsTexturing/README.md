@@ -33,6 +33,8 @@
 ### Problems
 
 - 待解决问题
+    - 纹理块太大
+        - 给过大纹理块添加一个块划分操作。看CC的做法是划分成了1024x1024
     - elephant 映射会出现奇怪黑斑
         - 用 mapmap 或 projection 报纸都会乱（推测可能是 outlier 出现问题）
     
@@ -126,7 +128,7 @@
     
 - elephant01    
     - WorkDirectory: /Users/stormphoenix/Workspace/Projects/CLionProjects/3dReconstruction/Dataset/elephant01
-    - Projection Options: --scene_file ./visualSFM/model.nvm --input_mesh ./model_dense_vis2mesh_simplified.ply --output_prefix ./Output_TexturePipeline/model --mrf_call_lib mapmap --outlier_removal gauss_clamping --method_type projection --keep_unseen_faces true --skip_hole_filling true --sparse_model true
+    - Projection Options: --scene_file ./visualSFM/model.nvm --input_mesh ./model_dense_vis2mesh_simplified.ply --output_prefix ./Output_TexturePipeline/model --mrf_call_lib mapmap --outlier_removal gauss_clamping --method_type projection --keep_unseen_faces true --skip_hole_filling true --sparse_model true --debug_mode=true
     - OpenMVS: --scene_file ./visualSFM/model.nvm --input_mesh ./model_dense_vis2mesh_simplified.ply --output_prefix ./Output_TexturePipeline/model_openMVS --mrf_call_lib=openmvs --outlier_removal=gauss_clamping --method_type=mrf --keep_unseen_faces=true --skip_hole_filling=true --sparse_model=true --debug_mode=true
     - Projection: --scene_file ./visualSFM/model.nvm --input_mesh ./model_dense_vis2mesh_simplified.ply --output_prefix ./Output_TexturePipeline/model_Projection --mrf_call_lib=openmvs --outlier_removal=gauss_clamping --method_type=projection --keep_unseen_faces=true --skip_hole_filling=true --sparse_model=true --debug_mode=true
     

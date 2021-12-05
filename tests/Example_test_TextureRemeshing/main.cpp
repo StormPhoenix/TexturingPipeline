@@ -19,6 +19,7 @@
 #include <DataIO/IO.h>
 
 #include <IO/IO.h>
+#include <Parameter.h>
 #include <Base/TexturePatch.h>
 #include <Base/TextureAtlas.h>
 #include <Mapper/AtlasMapper.h>
@@ -99,6 +100,9 @@ int main(int argc, char **argv) {
             output_prefix = out_mesh_path.substr(0, dotpos);
         }
     }
+
+    MvsTexturing::Parameter parameter;
+    parameter.output_prefix = output_prefix;
 
     LOG_INFO("###### TextureRemeshing ------ Load models");
     if (input_extension == ".ply") {
@@ -244,7 +248,7 @@ int main(int argc, char **argv) {
     std::vector<MvsTexturing::Base::TextureAtlas::Ptr> texture_atlases;
     {
         LOG_INFO(" - generating atlases ... ");
-        MvsTexturing::AtlasMapper::generate_texture_atlases(&texture_patches, &texture_atlases);
+        MvsTexturing::AtlasMapper::generate_texture_atlases(parameter, &texture_patches, &texture_atlases);
         LOG_INFO(" - generating atlases done, {} created", texture_atlases.size());
     }
 

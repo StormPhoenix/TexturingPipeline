@@ -113,6 +113,18 @@ namespace MvsTexturing {
             int get_height(void) const;
 
             int get_size(void) const;
+
+            bool split_vertical(std::vector<TexturePatch::Ptr> &results);
+
+            bool split_horizontal(std::vector<TexturePatch::Ptr> &results);
+
+        private:
+            TexturePatch::Ptr create_sub_patch(
+                    int left, int right, int bottom, int top, std::vector<size_t> &face_indices,
+                    std::vector<math::Vec2f> &texcoords);
+
+            bool split(std::vector<TexturePatch::Ptr> &results, int direction);
+
         };
 
         inline TexturePatch::Ptr
@@ -131,18 +143,15 @@ namespace MvsTexturing {
             return Ptr(new TexturePatch(*this));
         }
 
-        inline int
-        TexturePatch::get_label(void) const {
+        inline int TexturePatch::get_label(void) const {
             return label;
         }
 
-        inline int
-        TexturePatch::get_width(void) const {
+        inline int TexturePatch::get_width(void) const {
             return image->width();
         }
 
-        inline int
-        TexturePatch::get_height(void) const {
+        inline int TexturePatch::get_height(void) const {
             return image->height();
         }
 
@@ -167,8 +176,7 @@ namespace MvsTexturing {
             return blending_mask;
         }
 
-        inline void
-        TexturePatch::release_blending_mask(void) {
+        inline void TexturePatch::release_blending_mask(void) {
             assert(blending_mask != NULL);
             blending_mask.reset();
         }
@@ -193,8 +201,7 @@ namespace MvsTexturing {
             return faces;
         }
 
-        inline int
-        TexturePatch::get_size(void) const {
+        inline int TexturePatch::get_size(void) const {
             return get_width() * get_height();
         }
 

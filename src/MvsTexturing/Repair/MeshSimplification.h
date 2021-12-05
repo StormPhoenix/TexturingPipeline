@@ -7,6 +7,7 @@
 
 #include <mve/image.h>
 #include <Base/FaceGroup.h>
+#include <Parameter.h>
 
 namespace MvsTexturing {
     namespace MeshRepair {

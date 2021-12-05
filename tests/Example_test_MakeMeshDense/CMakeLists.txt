@@ -15,6 +15,5 @@ target_include_directories(${PROJECT_NAME} PRIVATE
         ${MVE_INCLUDE_DIR})
 target_link_libraries(${PROJECT_NAME} PRIVATE
         MvsTexturing-Library
-        MeshRepair-Library
         Boost::program_options Boost::thread
         mve mve_util)
