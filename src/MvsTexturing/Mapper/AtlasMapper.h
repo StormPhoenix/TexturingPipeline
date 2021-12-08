@@ -15,6 +15,11 @@
 
 namespace MvsTexturing {
     namespace AtlasMapper {
+        const int kMaxTextureMapSize = (8 * 1024);
+        const int kMinTextureMapSize = (2 * 1024);
+        const int kPreferTextureMapSize = (4 * 1024);
+        const int kMaxTexturePatchSize = (2 * 1024);
+
         typedef mve::TriangleMesh::Ptr MeshPtr;
         typedef mve::TriangleMesh::ConstPtr MeshConstPtr;
         typedef mve::MeshInfo MeshInfo;

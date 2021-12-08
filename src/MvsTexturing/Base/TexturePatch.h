@@ -118,6 +118,8 @@ namespace MvsTexturing {
 
             bool split_horizontal(std::vector<TexturePatch::Ptr> &results);
 
+            void rescale(float factor);
+
         private:
             TexturePatch::Ptr create_sub_patch(
                     int left, int right, int bottom, int top, std::vector<size_t> &face_indices,

@@ -170,9 +170,6 @@ namespace MvsTexturing {
             return color;
         }
 
-        // texture patch 上面画 patch 边界线，会调用 set_pixel_value()，
-        // 这会修改 blending_mask
-        // 128 -> patch 的边界
         void TexturePatch::set_pixel_value(math::Vec2i pixel, math::Vec3f color) {
             assert(blending_mask != NULL);
             assert(valid_pixel(pixel));
@@ -426,9 +423,15 @@ namespace MvsTexturing {
                 return false;
             }
 
+            if (!first_area.init || !second_area.init) {
+                return false;
+            }
 
-            if ((first_area.start < 0 || (first_area.start + first_area.length) > total_patch_size) ||
-                (second_area.start < 0 || (second_area.start + second_area.length) > total_patch_size)) {
+            if ((first_area.init &&
+                 (first_area.start < 0 || (first_area.start + first_area.length) > total_patch_size)) ||
+                (second_area.init &&
+                 (second_area.start < 0 || (second_area.start + second_area.length) > total_patch_size))
+                    ) {
                 LOG_ERROR(" - split patch out of range");
                 return false;
             }
@@ -440,22 +443,26 @@ namespace MvsTexturing {
             int second_other_direction_end = -1;
             {
 
-                for (std::size_t i = 0; i < first_texcoords.size(); i++) {
-                    double coord = first_texcoords[i][other_texcoord_channel];
-                    first_other_direction_start = std::min(
-                            first_other_direction_start, static_cast<int>(std::floor(coord)));
+                if (first_area.init) {
+                    for (std::size_t i = 0; i < first_texcoords.size(); i++) {
+                        double coord = first_texcoords[i][other_texcoord_channel];
+                        first_other_direction_start = std::min(
+                                first_other_direction_start, static_cast<int>(std::floor(coord)));
 
-                    first_other_direction_end = std::max(
-                            first_other_direction_end, static_cast<int>(std::ceil(coord)));
+                        first_other_direction_end = std::max(
+                                first_other_direction_end, static_cast<int>(std::ceil(coord)));
+                    }
                 }
 
-                for (std::size_t i = 0; i < second_texcoords.size(); i++) {
-                    double coord = second_texcoords[i][other_texcoord_channel];
-                    second_other_direction_start = std::min(
-                            second_other_direction_start, static_cast<int>(std::floor(coord)));
+                if (second_area.init) {
+                    for (std::size_t i = 0; i < second_texcoords.size(); i++) {
+                        double coord = second_texcoords[i][other_texcoord_channel];
+                        second_other_direction_start = std::min(
+                                second_other_direction_start, static_cast<int>(std::floor(coord)));
 
-                    second_other_direction_end = std::max(
-                            second_other_direction_end, static_cast<int>(std::ceil(coord)));
+                        second_other_direction_end = std::max(
+                                second_other_direction_end, static_cast<int>(std::ceil(coord)));
+                    }
                 }
 
                 int kOtherDirectionMaxSize = 0;
@@ -476,7 +483,7 @@ namespace MvsTexturing {
 
             // create first patch image
             TexturePatch::Ptr first_sub_patch = nullptr;
-            {
+            if (first_area.init) {
                 if (direction == __inner__::kDirectionVertical) {
                     first_sub_patch = create_sub_patch(
                             first_other_direction_start, first_other_direction_end,
@@ -497,7 +504,7 @@ namespace MvsTexturing {
 
             // create right patch image
             TexturePatch::Ptr second_sub_patch = nullptr;
-            {
+            if (second_area.init) {
                 if (direction == __inner__::kDirectionVertical) {
                     second_sub_patch = create_sub_patch(
                             second_other_direction_start, second_other_direction_end, second_area.start,
@@ -518,10 +525,6 @@ namespace MvsTexturing {
             if (first_sub_patch == nullptr && second_sub_patch == nullptr) {
                 return false;
             } else {
-                if ((first_sub_patch == nullptr && second_sub_patch != nullptr) ||
-                    (first_sub_patch != nullptr && second_sub_patch == nullptr)) {
-                    LOG_WARN(" - texture patch split odd, one sub-patch is null but the another is not.");
-                }
                 return true;
             }
         }
@@ -569,6 +572,42 @@ namespace MvsTexturing {
             }
 
             return create(0, face_indices, texcoords, crop_image);
+        }
+
+        void TexturePatch::rescale(float factor) {
+            int scale_width = get_width() * factor;
+            int scale_height = get_height() * factor;
+
+            // rescale image
+            {
+                mve::FloatImage::Ptr tmp_image = mve::FloatImage::create(scale_width, scale_height, 3);
+                mve::image::rescale_linear<float>(image, tmp_image);
+                image.reset();
+                image = tmp_image;
+            }
+
+            // rescale validity mask
+            {
+                mve::ByteImage::Ptr tmp_image = mve::ByteImage::create(scale_width, scale_height, 3);
+                mve::image::rescale_nearest<uint8_t>(validity_mask, tmp_image);
+                validity_mask.reset();
+                validity_mask = tmp_image;
+            }
+
+            // rescale blending mask
+            {
+                mve::ByteImage::Ptr tmp_image = mve::ByteImage::create(scale_width, scale_height, 3);
+                mve::image::rescale_nearest<uint8_t>(blending_mask, tmp_image);
+                blending_mask.reset();
+                blending_mask = tmp_image;
+            }
+
+            // rescale texcoords
+            {
+                for (int var_i = 0; var_i < texcoords.size(); var_i++) {
+                    texcoords[var_i] *= factor;
+                }
+            }
         }
     }
 }

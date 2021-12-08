@@ -102,14 +102,14 @@ namespace MvsTexturing {
             /** Erodes the validity mask by one pixel. */
             void erode_validity_mask(void);
 
-            void get_face_info(math::Vec3f const & v1, math::Vec3f const & v2, math::Vec3f const & v3,
-                          FaceProjectionInfo * face_info, const Parameter &settings) const;
+            void get_face_info(math::Vec3f const &v1, math::Vec3f const &v2, math::Vec3f const &v3,
+                               FaceProjectionInfo *face_info, const Parameter &settings) const;
 
             void
-            export_triangle(math::Vec3f v1, math::Vec3f v2, math::Vec3f v3, std::string const & filename) const;
+            export_triangle(math::Vec3f v1, math::Vec3f v2, math::Vec3f v3, std::string const &filename) const;
 
             void
-            export_validity_mask(std::string const & filename) const;
+            export_validity_mask(std::string const &filename) const;
         };
 
         inline std::size_t

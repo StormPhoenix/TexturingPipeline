@@ -15,9 +15,9 @@
 #include <igl/triangle_triangle_adjacency.h>
 #include <mve/image_tools.h>
 #include <common.h>
-#include "MeshSimplification.h"
 
-#define MAX_PATCH_SIZE (1 * 1024)
+#include "Mapper/AtlasMapper.h"
+#include "MeshSimplification.h"
 
 namespace MvsTexturing {
     namespace MeshRepair {
@@ -90,7 +90,7 @@ namespace MvsTexturing {
             }
 
             int max_size = std::max(patch->get_width(), patch->get_height());
-            if (max_size <= MAX_PATCH_SIZE) {
+            if (max_size <= AtlasMapper::kMaxTexturePatchSize) {
                 return NOT_SPLIT;
             }
 
@@ -120,9 +120,23 @@ namespace MvsTexturing {
                         split_result = patch->split_horizontal(tmp_patches);
                     }
 
-                    if ((split_type == NOT_SPLIT) || (!split_result)) {
+                    if (split_type == NOT_SPLIT) {
                         result.push_back(patch);
                         continue;
+                    } else if (!split_result) {
+                        // big texture patch but little triangles
+                        if (patch->get_width() < AtlasMapper::kMaxTextureMapSize &&
+                            patch->get_height() < AtlasMapper::kMaxTextureMapSize) {
+                            result.push_back(patch);
+                            continue;
+                        } else {
+                            float scale_factor = float(AtlasMapper::kMaxTextureMapSize - 10) /
+                                                 (std::max(patch->get_width(), patch->get_height()));
+
+                            patch->rescale(scale_factor);
+                            result.push_back(patch);
+                            continue;
+                        }
                     }
                 }
                 patches.swap(tmp_patches);
@@ -428,7 +442,7 @@ namespace MvsTexturing {
                 final_texture_patches->push_back(patch);
             }
 
-            LOG_DEBUG(" - begin split bigger patches ... ");
+            LOG_INFO(" - begin split bigger patches ... ");
             {
                 // split bigger patches
                 std::vector<TexturePatch::Ptr> tmp_patches;
@@ -683,7 +697,7 @@ namespace MvsTexturing {
             }
         };
 
-        bool create_irregular_patches_on_spares_mesh(
+        bool create_irregular_patches_on_sparse_mesh(
                 const AttributeMatrix &sparse_mesh_vertices,
                 const IndexMatrix &sparse_mesh_faces,
                 std::set<std::size_t> &irregular_patch_faces,

@@ -740,7 +740,7 @@ bool texture_from_dense_to_sparse_model(
     const int n_plane_patches_size = final_patches->size();
     LOG_DEBUG(" - done, {} plane patches created. ", final_patches->size());
 
-    ret = MeshRepair::create_irregular_patches_on_spares_mesh(
+    ret = MeshRepair::create_irregular_patches_on_sparse_mesh(
             sparse_mesh.m_vertices, sparse_mesh.m_faces, irregular_patch_faces,
             dense_mesh_face_texture_coords, dense_mesh_face_materials, face_subdivisions, final_patches);
     if (!ret) {

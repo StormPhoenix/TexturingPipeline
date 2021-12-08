@@ -21,6 +21,7 @@
 #include "Base/LabelGraph.h"
 #include "Base/TexturePatch.h"
 #include "Base/TextureAtlas.h"
+#include "Mapper/AtlasMapper.h"
 
 #include "MvsTexturing.h"
 
@@ -28,10 +29,6 @@ namespace MvsTexturing {
     namespace AtlasMapper {
 #define MAX_HOLE_NUM_FACES 100
 #define MAX_HOLE_PATCH_SIZE 100
-
-#define MAX_TEXTURE_SIZE (8 * 1024)
-#define PREF_TEXTURE_SIZE (4 * 1024)
-#define MIN_TEXTURE_SIZE (2 * 1024)
 
         template<typename T>
         T clamp_nan_low(T const &v, T const &lo, T const &hi) {
@@ -644,7 +641,7 @@ namespace MvsTexturing {
         * of the maximal possible texture atlas size.
         */
         unsigned int calculate_texture_size(const std::list<Base::TexturePatch::ConstPtr> &texture_patches) {
-            unsigned int size = MAX_TEXTURE_SIZE;
+            unsigned int size = kMaxTextureMapSize;
 
             while (true) {
                 unsigned int total_area = 0;
@@ -673,19 +670,19 @@ namespace MvsTexturing {
                     total_area += area;
                 }
 
-                assert(max_width < MAX_TEXTURE_SIZE);
-                assert(max_height < MAX_TEXTURE_SIZE);
-                if (size > PREF_TEXTURE_SIZE &&
-                    max_width < PREF_TEXTURE_SIZE &&
-                    max_height < PREF_TEXTURE_SIZE &&
-                    total_area / (PREF_TEXTURE_SIZE * PREF_TEXTURE_SIZE) < 2.0) {
-                    size = PREF_TEXTURE_SIZE;
+                assert(max_width < kMaxTextureMapSize);
+                assert(max_height < kMaxTextureMapSize);
+                if (size > kPreferTextureMapSize &&
+                    max_width < kPreferTextureMapSize &&
+                    max_height < kPreferTextureMapSize &&
+                    total_area / (kPreferTextureMapSize * kPreferTextureMapSize) < 2.0) {
+                    size = kPreferTextureMapSize;
                     continue;
                 }
 
 
-                if (size <= MIN_TEXTURE_SIZE) {
-                    return MIN_TEXTURE_SIZE;
+                if (size <= kMinTextureMapSize) {
+                    return kMinTextureMapSize;
                 }
 
                 if (max_height < size / 2 && max_width < size / 2 &&

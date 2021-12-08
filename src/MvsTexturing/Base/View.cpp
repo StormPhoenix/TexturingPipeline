@@ -34,8 +34,7 @@ namespace MvsTexturing {
             camera.fill_world_to_cam(*world_to_cam);
         }
 
-        void
-        TextureView::generate_validity_mask(void) {
+        void TextureView::generate_validity_mask(void) {
             assert(image != NULL);
             validity_mask.resize(width * height, true);
             mve::ByteImage::Ptr checked = mve::ByteImage::create(width, height, 1);
@@ -88,21 +87,18 @@ namespace MvsTexturing {
             }
         }
 
-        void
-        TextureView::load_image(void) {
+        void TextureView::load_image(void) {
             if(image != NULL) return;
             image = mve::image::load_file(image_file);
         }
 
-        void
-        TextureView::generate_gradient_magnitude(void) {
+        void TextureView::generate_gradient_magnitude(void) {
             assert(image != NULL);
             mve::ByteImage::Ptr bw = mve::image::desaturate<std::uint8_t>(image, mve::image::DESATURATE_LUMINANCE);
             gradient_magnitude = mve::image::sobel_edge<std::uint8_t>(bw);
         }
 
-        void
-        TextureView::erode_validity_mask(void) {
+        void TextureView::erode_validity_mask(void) {
             std::vector<bool> eroded_validity_mask(validity_mask);
 
             for (int y = 0; y < height; ++y) {
@@ -253,8 +249,7 @@ namespace MvsTexturing {
              */
         }
 
-        bool
-        TextureView::valid_pixel(math::Vec2f pixel) const {
+        bool TextureView::valid_pixel(math::Vec2f pixel) const {
             float const x = pixel[0];
             float const y = pixel[1];
 
@@ -283,8 +278,7 @@ namespace MvsTexturing {
             return valid;
         }
 
-        void
-        TextureView::export_triangle(math::Vec3f v1, math::Vec3f v2, math::Vec3f v3,
+        void TextureView::export_triangle(math::Vec3f v1, math::Vec3f v2, math::Vec3f v3,
                                      std::string const & filename) const {
             assert(image != NULL);
             math::Vec2f p1 = get_pixel_coords(v1);
@@ -306,8 +300,7 @@ namespace MvsTexturing {
                                                        *math::Vec3uc(255, 0, 255)), filename);
         }
 
-        void
-        TextureView::export_validity_mask(std::string const & filename) const {
+        void TextureView::export_validity_mask(std::string const & filename) const {
             assert(validity_mask.size() == static_cast<std::size_t>(width * height));
             mve::ByteImage::Ptr img = mve::ByteImage::create(width, height, 1);
             for (std::size_t i = 0; i < validity_mask.size(); ++i) {
