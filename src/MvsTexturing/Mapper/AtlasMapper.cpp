@@ -755,18 +755,13 @@ namespace MvsTexturing {
                         {
                             texture_atlas->finalize();
                             texture_atlas->save();
-                            LOG_DEBUG(" - texture atlas saved: {}", texture_atlas->get_save_path());
+                            LOG_INFO(" - texture atlas saved: {}", texture_atlas->get_save_path());
                             texture_atlas->release_image();
                             LOG_DEBUG(" - texture atlas released: {}", texture_atlas->get_name());
                         }
                     }
-
-                    util::WallTimer timer;
 #pragma omp taskwait
-
-                    /* End of single region */
                 }
-                /* End of parallel region. */
             }
         }
 

@@ -33,32 +33,35 @@
 ### Problems
 
 - 待解决问题
-    - 纹理块太大
+    - [x]纹理块太大
         - 给过大纹理块添加一个块划分操作。看CC的做法是划分成了1024x1024
-    - elephant 映射会出现奇怪黑斑
+    - [ ] elephant 映射会出现奇怪黑斑
         - 用 mapmap 或 projection 报纸都会乱（推测可能是 outlier 出现问题）
     
-    - 稀疏网格纹理重映射问题。网格重映射算法在 TextureRemeshing 已经被实现。但对于稀疏网格，对未被检测到平面的网格区域做重映射，
+    - [x]稀疏网格纹理重映射问题。网格重映射算法在 TextureRemeshing 已经被实现。但对于稀疏网格，对未被检测到平面的网格区域做重映射，
     会存在 one triangle (sparse) 跨 multiple triangle (dense) 的问题。这样就没办法把纹理合并起来。解决办法是：如果某部分网格没有被检测
     为平面，就不对这块区域的 triangle 做划分。可是这个办法太依赖输入网格的平面检测结果了。万一这个区域本身很稀疏却没有被检测为平面，一旦不划分，
     可见性检测就会出问题。
     那应该这样解决，按照原有方式做网格划分，如果一个三角形被划分了，但是却没被检测为平面，我还是认为这个三角形是一个平面，重映射时就用这个拟合平面
     来重映射。
 
-    - 引入 GCOptimizatin
-    - 用 elephant 做测试数据，投影结果非常怪异（发现检测得到的平面基本上弯曲度都比较大）
+    - [ ] 引入 GCOptimizatin
     
-    - 用于运行平面检测的程序设置了新参数，最终跑出的模型面片之间大小差异非常大，纹理映射效果变得非常差了。
+    - [ ] 用于运行平面检测的程序设置了新参数，最终跑出的模型面片之间大小差异非常大，纹理映射效果变得非常差了。
         - 应对策略：密集部位采用求解 MRF 方式；稀疏部位用 Projection 方法;
         
-    - 用新参数设置 elephant 模型，得到了非常多的细碎无纹理三角片。原因是模型投影到自定义平面，由于 plane_density 是人为设置的值，所以投影到平面上可能还不到1像素
-        - plane_density 的大小要动态确定
-        - 没有纳入 plane detection 的面片也要尝试组合成一个 patch
-        - 如果真的遇到极端情况比如一个 face 的结果投影到平面都不止 1 像素，该考虑如何解决。
+    - [ ] 用新参数设置 elephant 模型，得到了非常多的细碎无纹理三角片。原因是模型投影到自定义平面，由于 plane_density 是人为设置的值，所以投影到平面上可能还不到1像素
+        - [ ] plane_density 的大小要动态确定
+        - [x] 没有纳入 plane detection 的面片也要尝试组合成一个 patch
+        - [ ] 如果真的遇到极端情况比如一个 face 的结果投影到平面都不止 1 像素，该考虑如何解决。
     
-- 稀疏网格纹理映射
-    - MvsTexturing、MakeMeshDense 和 TextureRemeshing 已经写好，稀疏网格纹理映射就靠这三个库串起来即可。
-    - TextureRemeshing 还存在一些小问题，就是对纹理采样得到的图像变得模糊、有锯齿，还没想出改进办法。
+- [ ] 稀疏网格纹理映射
+    - [x] MvsTexturing、MakeMeshDense 和 TextureRemeshing 已经写好，稀疏网格纹理映射就靠这三个库串起来即可。
+    - [ ] MakeMeshDense 加密的密度应该如何计算
+        - 大尺度区域不应该用少数几个大三角形来表示
+        - 最终加密后的网格，面片应该足够均匀
+        - 尝试定义网格划分 error，引入理论性
+    - [ ] TextureRemeshing 还存在一些小问题，就是对纹理采样得到的图像变得模糊、有锯齿，还没想出改进办法。
     
 - Mapmap-Cpu 与 LBP 对比结果
     - 速度：同样测试用例，Mapmap-Cpu 速度是 LBP 的十倍 <font color="red">?(检查下 mapmap 和 LBP 的截止条件)</font>
@@ -155,6 +158,13 @@
         
     - DebugOptions - 加密 | SeamLeveling
         - --scene_file=./visualSFM/model.nvm --input_mesh=./model_debug.ply --output_prefix=./Output_TexturePipeline/Mapmap_SeamLeveling --mrf_call_lib=mapmap --outlier_removal=gauss_clamping --method_type=mrf --keep_unseen_faces=true --skip_hole_filling=true --skip_local_seam_leveling=false --sparse_model=true --debug_mode=true --skip_global_seam_leveling=false
+
+- e345_3
+    - AppOptions:
+        --scene_file=./visualSFM/model.nvm --input_mesh=./model_dense_vis2mesh_simplified.ply --output_prefix=./Output_TexturePipeline/model --mrf_call_lib=mapmap --outlier_removal=gauss_clamping --method_type=projection --keep_unseen_faces=true --skip_hole_filling=true --skip_local_seam_leveling=false --sparse_model=true --debug_mode=true
+        --scene_file=./visualSFM/model.nvm --input_mesh=./model_dense_vis2mesh_simplified.ply --output_prefix=./Output_TexturePipeline/model --mrf_call_lib=mapmap --outlier_removal=gauss_clamping --method_type=mrf --keep_unseen_faces=true --skip_hole_filling=true --skip_local_seam_leveling=false --sparse_model=true --debug_mode=true
+    - Directory:
+        /Users/stormphoenix/Workspace/Projects/CLionProjects/3dReconstruction/Dataset/e345_3
 
 - haidian_model
     - AppOptions: 

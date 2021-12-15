@@ -36,6 +36,7 @@ namespace MvsTexturing {
         typedef double Scalar;
         typedef Eigen::Matrix<Scalar, -1, -1, Eigen::RowMajor> AttributeMatrix;
         typedef Eigen::Matrix<int, -1, -1, Eigen::RowMajor> IndexMatrix;
+        using Vec3 = Eigen::Matrix<Base::Scalar, 1, 3>;
     }
 }
 

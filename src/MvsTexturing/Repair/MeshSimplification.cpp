@@ -308,8 +308,6 @@ namespace MvsTexturing {
                             continue;
                         }
 
-                        // TODO delete do copy operation
-//                    mve::ByteImage::ConstPtr src_dense_img = dense_mesh_face_materials[sub_f_idx];
                         FloatImageConstPtr src_dense_img = dense_mesh_face_materials[sub_f_idx];
                         const int src_width = src_dense_img->width();
                         const int src_height = src_dense_img->height();
@@ -348,24 +346,8 @@ namespace MvsTexturing {
                                         float normalize = 0.f;
                                         float src_color = 0.f;
 
-                                        for (int kernel_offset_j = -1; kernel_offset_j <= 1; kernel_offset_j++) {
-                                            for (int kernel_offset_i = -1; kernel_offset_i <= 1; kernel_offset_i++) {
-                                                const int gx = int(src_coord[0]) + kernel_offset_i;
-                                                const int gy = int(src_coord[1]) + kernel_offset_j;
-
-                                                if (gx >= 0 && gx < src_dense_img->width() &&
-                                                    gy >= 0 && gy < src_dense_img->height()) {
-                                                    float weight = gauss_mat[(kernel_offset_j + 1) * 3 +
-                                                                             (kernel_offset_i + 1)];
-                                                    normalize += weight;
-                                                    src_color += (src_dense_img->at(gx, gy, c)) * 255 * weight;
-                                                }
-                                            }
-                                        }
-                                        src_color = (src_color / normalize);
-                                        patch_image->at(x, y, c) = std::min(1.0f, std::max(0.0f,
-                                                                                           ((float) src_color) /
-                                                                                           255.0f));
+                                        src_color = src_dense_img->at(int(src_coord[0]), int(src_coord[1]), c);
+                                        patch_image->at(x, y, c) = std::min(1.0f, std::max(0.0f, src_color));
                                     }
                                     patch_mask->at(x, y, 0) = 255;
                                 } else {
@@ -373,6 +355,61 @@ namespace MvsTexturing {
                                 }
                             }
                         }
+                    }
+
+                    {
+                        // filter patch image
+                        mve::FloatImage::Ptr filter_image =
+                                mve::FloatImage::create(patch_image->width(), patch_image->height(), 3);
+                        filter_image->fill(0);
+
+#pragma omp parallel for schedule(dynamic)
+                        for (int x = 0; x < patch_mask->width(); x++) {
+                            for (int y = 0; y < patch_mask->height(); y++) {
+                                if (patch_mask->at(x, y, 0) == 0) {
+                                    continue;
+                                }
+
+                                for (int c = 0; c < 3; c++) {
+                                    float normalize = 0.f;
+                                    float filter_color = 0.f;
+
+                                    for (int kernel_offset_j = -1; kernel_offset_j <= 1; kernel_offset_j++) {
+                                        for (int kernel_offset_i = -1; kernel_offset_i <= 1; kernel_offset_i++) {
+                                            const int nx = x + kernel_offset_i;
+                                            const int ny = y + kernel_offset_j;
+
+                                            if (nx >= 0 && nx < patch_mask->width() &&
+                                                ny >= 0 && ny < patch_mask->height() &&
+                                                patch_mask->at(nx, ny, 0) == 255) {
+                                                float weight = gauss_mat[(kernel_offset_j + 1) * 3 +
+                                                                         (kernel_offset_i + 1)];
+                                                normalize += weight;
+                                                filter_color += (patch_image->at(nx, ny, c)) * 255 * weight;
+                                            }
+                                        }
+                                    }
+
+                                    filter_color = filter_color / normalize;
+                                    filter_image->at(x, y, c) =
+                                            std::min(1.0f, std::max(0.0f, ((float) filter_color) / 255.0f));
+                                }
+                            }
+                        }
+
+#pragma omp parallel for schedule(dynamic)
+                        for (int x = 0; x < patch_image->width(); x++) {
+                            for (int y = 0; y < patch_image->height(); y++) {
+                                if (patch_mask->at(x, y, 0) == 0) {
+                                    continue;
+                                }
+
+                                for (int c = 0; c < 3; c++) {
+                                    patch_image->at(x, y, c) = filter_image->at(x, y, c);
+                                }
+                            }
+                        }
+                        filter_image.reset();
                     }
 
                     {

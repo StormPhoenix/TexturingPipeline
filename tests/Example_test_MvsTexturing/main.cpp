@@ -2,6 +2,7 @@
 // Created by Storm Phoenix on 2021/10/11.
 //
 #include <set>
+#include <vector>
 #include <sstream>
 #include <iostream>
 #include <boost/program_options.hpp>
@@ -105,6 +106,46 @@ bool map_textures(MeshPtr input_mesh, MeshInfo &mesh_info, TextureViews &texture
                   const FaceSubdivisions &face_subdivisions,
                   const __inner__::Mesh &origin_mesh, const __inner__::Mesh &dense_mesh);
 
+void evaluate_make_dense_configurations(const __inner__::Mesh &mesh, double &len_threshold, int &max_dense_faces) {
+    using namespace MvsTexturing;
+    double _min_x, _min_y, _min_z;
+    double _max_x, _max_y, _max_z;
+
+    {
+        Base::AttributeMatrix p = mesh.m_vertices(0, Eigen::all);
+        _min_x = p(0, 0);
+        _min_y = p(0, 1);
+        _min_z = p(0, 2);
+
+        _max_x = p(0, 0);
+        _max_y = p(0, 1);
+        _max_z = p(0, 2);
+    }
+
+    for (int i = 0; i < mesh.m_faces.rows(); i++) {
+        Base::AttributeMatrix p3 = mesh.m_vertices(mesh.m_faces.row(i), Eigen::all);
+
+        for (int var_j = 0; var_j < 3; var_j++) {
+            _min_x = std::min(_min_x, p3(var_j, 0));
+            _min_y = std::min(_min_y, p3(var_j, 1));
+            _min_z = std::min(_min_z, p3(var_j, 2));
+
+            _max_x = std::max(_max_x, p3(var_j, 0));
+            _max_y = std::max(_max_y, p3(var_j, 1));
+            _max_z = std::max(_max_z, p3(var_j, 2));
+        }
+    }
+
+    double split_count = 300;
+    double x_max_range = (_max_x - _min_x);
+    double y_max_range = (_max_y - _min_y);
+    double z_max_range = (_max_z - _min_z);
+    double max_range = std::max(std::max(x_max_range, y_max_range), z_max_range);
+
+    len_threshold = max_range / split_count;
+    max_dense_faces = 2500000;
+}
+
 int main(int argc, char **argv) {
     preprocessing(argc, argv);
 
@@ -116,8 +157,11 @@ int main(int argc, char **argv) {
         std::exit(EXIT_FAILURE);
     }
 
-    using namespace MvsTexturing;
+    if (param.debug_mode) {
+        spdlog::set_level(spdlog::level::debug);
+    }
 
+    using namespace MvsTexturing;
     util::WallTimer whole_timer;
 
     // Read mesh files
@@ -245,11 +289,17 @@ int main(int argc, char **argv) {
 
             // make mesh dense
             {
+                double len_threshold = 0.05;
+                int max_dense_faces = 2000000;
+                evaluate_make_dense_configurations(origin_mesh, len_threshold, max_dense_faces);
+
                 IO_timer.reset();
                 LOG_INFO(" - model is too sparse, make the model dense ...");
+                LOG_DEBUG(" - make dense configurations, edge length threshold: {}, max dense faces: {}",
+                          len_threshold, max_dense_faces);
                 MeshSubdivision::make_mesh_dense(origin_mesh.m_vertices, origin_mesh.m_faces, dense_mesh.m_vertices,
                                                  dense_mesh.m_faces, origin_mesh.m_face_colors,
-                                                 dense_mesh.m_face_colors);
+                                                 dense_mesh.m_face_colors, len_threshold, max_dense_faces);
                 LOG_INFO(" - done, get the dense model, vertices: {}, faces: {}",
                          dense_mesh.m_vertices.rows(), dense_mesh.m_faces.rows());
             }
@@ -312,6 +362,7 @@ int main(int argc, char **argv) {
             return 0;
         }
     }
+
     MeshInfo mesh_info(input_mesh);
     Builder::MVE::prepare_mesh(&mesh_info, input_mesh);
 
@@ -329,8 +380,6 @@ int main(int argc, char **argv) {
     }
 
     if (param.debug_mode) {
-        spdlog::set_level(spdlog::level::debug);
-
         param.debug_dir = util::fs::join_path(output_dir, "debug_mode");
         param.debug_primary_patch_dir = util::fs::join_path(param.debug_dir, "primary_patch");
         param.debug_remapping_patch_dir = util::fs::join_path(param.debug_dir, "remapping_patch");
@@ -347,6 +396,7 @@ int main(int argc, char **argv) {
             util::fs::mkdir(param.debug_remapping_patch_dir.c_str());
         }
     }
+
 
     // Read camera images
     LOG_INFO("###### MvsTexturing ------ Load scene ");
