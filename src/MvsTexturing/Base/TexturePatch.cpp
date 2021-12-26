@@ -609,5 +609,50 @@ namespace MvsTexturing {
                 }
             }
         }
+
+        void TexturePatch::generate_validity_map() {
+            validity_map = GridPatch::create(validity_mask->width(), validity_mask->height(), kGridSize);
+            for (int grid_y = 0; grid_y < validity_map->grid_height(); grid_y++) {
+                for (int grid_x = 0; grid_x < validity_map->grid_width(); grid_x++) {
+                    // calculate offset
+                    int start_offset_x = grid_x * kGridSize;
+                    int start_offset_y = grid_y * kGridSize;
+
+                    bool is_occupied = false;
+                    for (int offset_i = 0; offset_i < kGridSize; offset_i++) {
+                        int offset_x = offset_i + start_offset_x;
+                        if (offset_x >= validity_mask->width()) {
+                            break;
+                        }
+
+                        for (int offset_j = 0; offset_j < kGridSize; offset_j++) {
+                            int offset_y = offset_j + start_offset_y;
+                            if (offset_y >= validity_mask->height()) {
+                                break;
+                            }
+
+                            unsigned char mask_val = validity_mask->at(offset_x, offset_y, 0);
+                            if (mask_val == 255) {
+                                is_occupied = true;
+                                break;
+                            }
+                        }
+
+                        if (is_occupied) {
+                            break;
+                        }
+                    }
+
+                    if (is_occupied) {
+                        if (grid_x == 0) {
+                            validity_map->update(1, grid_x, grid_y);
+                        } else {
+                            int val = validity_map->get_val(grid_x - 1, grid_y);
+                            validity_map->update(val + 1, grid_x, grid_y);
+                        }
+                    }
+                }
+            }
+        }
     }
 }

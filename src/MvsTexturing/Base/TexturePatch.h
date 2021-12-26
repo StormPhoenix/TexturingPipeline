@@ -7,6 +7,7 @@
 
 
 #include <mve/image.h>
+#include <Base/GridMapPacking.h>
 
 #include <Math/Tri2D.h>
 
@@ -41,7 +42,7 @@ namespace MvsTexturing {
         */
         class TexturePatch {
         public:
-            static const int kTexturePatchPadding = 2;
+            static const int kTexturePatchPadding = 4;
             typedef std::shared_ptr<TexturePatch> Ptr;
             typedef std::shared_ptr<const TexturePatch> ConstPtr;
             typedef std::vector<std::size_t> Faces;
@@ -54,6 +55,7 @@ namespace MvsTexturing {
             mve::FloatImage::Ptr image;
             mve::ByteImage::Ptr validity_mask;
             mve::ByteImage::Ptr blending_mask;
+            GridPatch::Ptr validity_map;
 
         public:
             /** Constructs a texture patch. */
@@ -94,6 +96,8 @@ namespace MvsTexturing {
 
             mve::ByteImage::ConstPtr get_validity_mask(void) const;
 
+            GridPatch::ConstPtr get_validity_map(void) const;
+
             mve::ByteImage::ConstPtr get_blending_mask(void) const;
 
             std::pair<float, float> get_min_max(void) const;
@@ -105,6 +109,8 @@ namespace MvsTexturing {
             void erode_validity_mask(void);
 
             void blend(mve::FloatImage::ConstPtr orig);
+
+            void generate_validity_map();
 
             int get_label(void) const;
 
@@ -170,6 +176,11 @@ namespace MvsTexturing {
         inline mve::ByteImage::ConstPtr
         TexturePatch::get_validity_mask(void) const {
             return validity_mask;
+        }
+
+        inline GridPatch::ConstPtr
+        TexturePatch::get_validity_map(void) const {
+            return validity_map;
         }
 
         inline mve::ByteImage::ConstPtr

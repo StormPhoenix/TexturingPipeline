@@ -12,6 +12,7 @@
 #include <mve/mesh.h>
 #include <mve/mesh_info.h>
 #include <mve/image_tools.h>
+#include <mve/image_io.h>
 #include <Eigen/SparseCore>
 #include <Eigen/SparseLU>
 #include <util/timer.h>
@@ -701,6 +702,11 @@ namespace MvsTexturing {
 
         void generate_texture_atlases(const Parameter &param, TexturePatchList *orig_texture_patches,
                                       TextureAtlasList *texture_atlases, bool tone_mapping_gamma) {
+            for (int var_i = 0; var_i < orig_texture_patches->size(); var_i++) {
+                Base::TexturePatch::Ptr patch = (*orig_texture_patches)[var_i];
+                patch->generate_validity_map();
+            }
+
             std::list<Base::TexturePatch::ConstPtr> texture_patches;
             while (!orig_texture_patches->empty()) {
                 Base::TexturePatch::Ptr texture_patch = orig_texture_patches->back();
@@ -732,6 +738,7 @@ namespace MvsTexturing {
                         texture_atlases->push_back(Base::TextureAtlas::create(texture_size));
                         Base::TextureAtlas::Ptr texture_atlas = texture_atlases->back();
                         texture_atlas->set_name(param.output_prefix, texture_atlases->size() - 1);
+                        texture_atlas->generate_validity_map();
 
                         /* Try to insert each of the texture patches into the texture atlas. */
                         std::list<Base::TexturePatch::ConstPtr>::iterator it = texture_patches.begin();
@@ -743,7 +750,8 @@ namespace MvsTexturing {
                                 && done_patches % (total_num_patches / 100) == 0) {
                             }
 
-                            if (texture_atlas->insert(*it)) {
+                            if (texture_atlas->insert_grid(*it)) {
+//                            if (texture_atlas->insert(*it)) {
                                 it = texture_patches.erase(it);
                                 remaining_patches -= 1;
                             } else {
@@ -755,9 +763,15 @@ namespace MvsTexturing {
                         {
                             texture_atlas->finalize();
                             texture_atlas->save();
-                            LOG_INFO(" - texture atlas saved: {}", texture_atlas->get_save_path());
+                            LOG_INFO(" - texture atlas image saved: {}", texture_atlas->get_save_path());
                             texture_atlas->release_image();
                             LOG_DEBUG(" - texture atlas released: {}", texture_atlas->get_name());
+
+                            if (param.debug_mode) {
+                                texture_atlas->save_mask();
+                                LOG_DEBUG(" - texture atlas mask saved: {}", texture_atlas->get_mask_save_path());
+                            }
+                            texture_atlas->release_mask();
                         }
                     }
 #pragma omp taskwait

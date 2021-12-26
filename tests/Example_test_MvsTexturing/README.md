@@ -171,3 +171,4 @@
         --scene_file=./visualSFM/model.nvm --input_mesh=./model_dense_vis2mesh_simplified1.ply --output_prefix=./Output_TexturePipeline/model --mrf_call_lib=mapmap --outlier_removal=gauss_clamping --method_type=projection --keep_unseen_faces=true --skip_hole_filling=true --skip_local_seam_leveling=false --sparse_model=true --debug_mode=true
     - Directory:
         /Users/stormphoenix/Workspace/Projects/CLionProjects/3dReconstruction/Dataset/haidian_model
+        

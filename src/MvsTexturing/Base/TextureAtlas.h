@@ -14,6 +14,7 @@
 
 #include <Base/RectBin.h>
 #include <Base/TexturePatch.h>
+#include <Base/GridMapPacking.h>
 
 namespace MvsTexturing {
     namespace Base {
@@ -40,8 +41,11 @@ namespace MvsTexturing {
 
             mve::ByteImage::ConstPtr get_image(void) const;
 
+            void generate_validity_map();
+
             bool insert(TexturePatch::ConstPtr texture_patch);
 
+            bool insert_grid(TexturePatch::ConstPtr texture_patch);
 
             void finalize(void);
 
@@ -56,9 +60,17 @@ namespace MvsTexturing {
                 return save_path;
             }
 
+            const std::string &get_mask_save_path() const {
+                return mask_save_path;
+            }
+
             void save();
 
+            void save_mask();
+
             void release_image();
+
+            void release_mask();
 
         private:
             unsigned int const size;
@@ -71,9 +83,11 @@ namespace MvsTexturing {
 
             mve::ByteImage::Ptr image;
             mve::ByteImage::Ptr validity_mask;
+            GridMap::Ptr validity_map;
 
             std::string name;
             std::string save_path;
+            std::string mask_save_path;
 
             RectBin::Ptr bin;
 

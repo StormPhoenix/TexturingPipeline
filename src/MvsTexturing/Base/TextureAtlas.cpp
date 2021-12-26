@@ -49,11 +49,50 @@ namespace MvsTexturing {
             }
         }
 
+        void copy_into_by_mask(mve::ByteImage::ConstPtr src, int x, int y,
+                               const GridPatch &mask, mve::ByteImage::Ptr dest) {
+            for (std::size_t grid_x = 0; grid_x < mask.grid_width(); grid_x++) {
+                for (std::size_t grid_y = 0; grid_y < mask.grid_height(); grid_y++) {
+                    if (mask.get_val(grid_x, grid_y) != 0) {
+                        // occupied
+                        std::size_t start_offset_x = grid_x * mask.grid_size();
+                        std::size_t start_offset_y = grid_y * mask.grid_size();
+
+                        for (int j = 0; j < mask.grid_size(); j++) {
+                            int offset_y = j + start_offset_y;
+                            if (offset_y >= src->height()) {
+                                break;
+                            }
+                            int dest_y = y + offset_y;
+                            if (dest_y >= dest->height()) {
+                                break;
+                            }
+
+                            for (int i = 0; i < mask.grid_size(); i++) {
+                                int offset_x = i + start_offset_x;
+                                if (offset_x >= src->width()) {
+                                    break;
+                                }
+
+                                int dest_x = x + offset_x;
+                                if (dest_x >= dest->width()) {
+                                    break;
+                                }
+
+                                for (int c = 0; c < src->channels(); c++) {
+                                    dest->at(dest_x, dest_y, c) = src->at(offset_x, offset_y, c);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         typedef std::vector<std::pair<int, int> > PixelVector;
         typedef std::set<std::pair<int, int> > PixelSet;
 
-        bool
-        TextureAtlas::insert(TexturePatch::ConstPtr texture_patch) {
+        bool TextureAtlas::insert(TexturePatch::ConstPtr texture_patch) {
             if (finalized) {
                 throw util::Exception("No insertion possible, TextureAtlas already finalized");
             }
@@ -96,7 +135,59 @@ namespace MvsTexturing {
             return true;
         }
 
+        bool TextureAtlas::insert_grid(TexturePatch::ConstPtr texture_patch) {
+            if (finalized) {
+                throw util::Exception("No insertion possible, TextureAtlas already finalized");
+            }
 
+            assert(bin != NULL);
+            assert(validity_mask != NULL);
+            assert(validity_map != NULL);
+
+//            int const width = texture_patch->get_width() + 2 * padding;
+//            int const height = texture_patch->get_height() + 2 * padding;
+//            Math::Rect2D<int> rect(0, 0, width, height);
+//            if (!bin->insert(&rect)) return false;
+
+            std::size_t min_x, min_y;
+            if (!validity_map->insert(*texture_patch->get_validity_map(), min_x, min_y)) {
+                return false;
+            }
+
+            /* Update texture atlas and its validity mask. */
+            mve::ByteImage::Ptr patch_image = mve::image::float_to_byte_image(
+                    texture_patch->get_image(), 0.0f, 1.0f);
+            copy_into_by_mask(patch_image, min_x, min_y, *texture_patch->get_validity_map(), image);
+            copy_into_by_mask(texture_patch->get_validity_mask(), min_x, min_y, *texture_patch->get_validity_map(),
+                              validity_mask);
+            validity_map->update(*texture_patch->get_validity_map(), min_x, min_y);
+
+
+//            copy_into(patch_image, rect.min_x, rect.min_y, image, padding);
+//            mve::ByteImage::ConstPtr patch_validity_mask = texture_patch->get_validity_mask();
+//            copy_into(patch_validity_mask, rect.min_x, rect.min_y, validity_mask, padding);
+
+            TexturePatch::Faces const &patch_faces = texture_patch->get_faces();
+            TexturePatch::Texcoords const &patch_texcoords = texture_patch->get_texcoords();
+
+            /* Calculate the offset of the texture patches' relative texture coordinates */
+            math::Vec2f offset = math::Vec2f(min_x, min_y);
+
+            faces.insert(faces.end(), patch_faces.begin(), patch_faces.end());
+
+            /* Calculate the final textcoords of the faces. */
+            for (std::size_t i = 0; i < patch_faces.size(); ++i) {
+                for (int j = 0; j < 3; ++j) {
+                    math::Vec2f rel_texcoord(patch_texcoords[i * 3 + j]);
+                    math::Vec2f texcoord = rel_texcoord + offset;
+
+                    texcoord[0] = texcoord[0] / this->size;
+                    texcoord[1] = texcoord[1] / this->size;
+                    texcoords.push_back(texcoord);
+                }
+            }
+            return true;
+        }
 
         void
         TextureAtlas::apply_edge_padding(void) {
@@ -245,7 +336,7 @@ namespace MvsTexturing {
 
             this->bin.reset();
             this->apply_edge_padding();
-            this->validity_mask.reset();
+//            this->validity_mask.reset();
             this->merge_texcoords();
 
             this->finalized = true;
@@ -263,9 +354,11 @@ namespace MvsTexturing {
             }
 
             const std::string diffuse_map_postfix = "_material" + util::string::get_filled(index, 4) + "_map_Kd.png";
+            const std::string mask_map_postfix = "_mask" + util::string::get_filled(index, 4) + "_map_Kd.png";
 
             name = util::fs::basename(prefix) + diffuse_map_postfix;
             save_path = prefix + diffuse_map_postfix;
+            mask_save_path = prefix + mask_map_postfix;
         }
 
         void TextureAtlas::save() {
@@ -276,12 +369,32 @@ namespace MvsTexturing {
             mve::image::save_png_file(image, save_path);
         }
 
+        void TextureAtlas::save_mask() {
+            if (validity_mask == nullptr) {
+                LOG_ERROR(" - can not save null mask image: {}", name);
+                return;
+            }
+            mve::image::save_png_file(validity_mask, mask_save_path);
+        }
+
         void TextureAtlas::release_image() {
             if (image == nullptr) {
                 LOG_ERROR(" - can not release null image: {}", name);
                 return;
             }
             image.reset();
+        }
+
+        void TextureAtlas::release_mask() {
+            if (validity_mask == nullptr) {
+                LOG_ERROR(" - can not release null mask image: {}", name);
+                return;
+            }
+            validity_mask.reset();
+        }
+
+        void TextureAtlas::generate_validity_map() {
+            validity_map = GridMap::create(validity_mask->width(), validity_mask->height(), kGridSize);
         }
     }
 }
