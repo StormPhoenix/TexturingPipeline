@@ -45,6 +45,105 @@ namespace MvsTexturing {
     namespace ViewSelection {
         typedef acc::BVHTree<unsigned int, math::Vec3f> BVHTree;
 
+        namespace __inner__ {
+            enum OcclusionLevel {
+                Zero_Point_Occlude,
+                One_Point_Occlude,
+                Two_Point_Occlude,
+                Three_Point_Occlude
+            };
+
+            OcclusionLevel check_occlusion_level(
+                    const Parameter &param, MeshConstPtr mesh, const BVHTree &bvh_tree,
+                    const Base::TextureView &texture_view, std::size_t face_id) {
+
+                const std::vector<unsigned int> &faces = mesh->get_faces();
+                const std::vector<math::Vec3f> &vertices = mesh->get_vertices();
+                const mve::TriangleMesh::NormalList &face_normals = mesh->get_face_normals();
+
+                const math::Vec3f &view_pos = texture_view.get_pos();
+                const math::Vec3f &viewing_direction = texture_view.get_viewing_direction();
+
+                const math::Vec3f &v1 = vertices[faces[face_id * 3]];
+                const math::Vec3f &v2 = vertices[faces[face_id * 3 + 1]];
+                const math::Vec3f &v3 = vertices[faces[face_id * 3 + 2]];
+                const math::Vec3f &face_normal = face_normals[face_id];
+                const math::Vec3f face_center = (v1 + v2 + v3) / 3.0f;
+
+                math::Vec3f view_to_face_vec = (face_center - view_pos).normalized();
+                math::Vec3f face_to_view_vec = (view_pos - face_center).normalized();
+
+                float viewing_angle = face_to_view_vec.dot(face_normal);
+                if (viewing_angle < 0.0f || viewing_direction.dot(view_to_face_vec) < 0.0f) {
+                    return Three_Point_Occlude;
+                }
+
+                if (!texture_view.inside(v1, v2, v3)) {
+                    return Three_Point_Occlude;
+                }
+
+                int n_occlude_points = 0;
+                math::Vec3f const *samples[] = {&v1, &v2, &v3};
+                for (std::size_t k = 0; k < sizeof(samples) / sizeof(samples[0]); ++k) {
+                    BVHTree::Ray ray;
+                    ray.origin = *samples[k];
+                    ray.dir = view_pos - ray.origin;
+                    ray.tmax = ray.dir.norm();
+                    ray.tmin = ray.tmax * 0.0001f;
+                    ray.dir.normalize();
+
+                    BVHTree::Hit hit;
+                    if (bvh_tree.intersect(ray, &hit)) {
+                        n_occlude_points++;
+                    }
+                }
+
+                switch (n_occlude_points) {
+                    case 0:
+                        return Zero_Point_Occlude;
+                    case 1:
+                        return One_Point_Occlude;
+                    case 2:
+                        return Two_Point_Occlude;
+                    default:
+                        return Three_Point_Occlude;
+                }
+            }
+
+            struct CameraScore {
+                double score;
+                int camera_id;
+                bool is_full_overlap;
+
+                CameraScore() : score(0.), camera_id(-1), is_full_overlap(false) {}
+
+                CameraScore(double s, int c, bool overlap) :
+                        score(s), camera_id(c), is_full_overlap(overlap) {}
+            };
+
+            bool func_camera_score_cmp(const struct CameraScore &a, const struct CameraScore &b) {
+                return a.score < b.score;
+            }
+
+            struct FaceQuality {
+                // camera id, range in [0, camera_num - 1]
+                std::uint16_t view_id;
+                float quality = 0.0f;
+                double gauss_value = 0.0f;
+
+                explicit FaceQuality(std::uint16_t vid) : view_id(vid) {}
+
+                explicit FaceQuality(std::uint16_t vid, float q, double g) :
+                        view_id(vid), quality(q), gauss_value(g) {}
+
+                bool operator<(const FaceQuality &other) const {
+                    return view_id < other.view_id;
+                }
+            };
+        }
+
+        using FacesVisibility = std::vector<std::set<__inner__::FaceQuality>>;
+
         void calculate_face_projection_infos(MeshConstPtr mesh,
                                              const BVHTree &bvh_tree,
                                              const Parameter &param,
@@ -164,163 +263,388 @@ namespace MvsTexturing {
             }
         }
 
-        namespace __inner__ {
-            enum OcclusionLevel {
-                Zero_Point_Occlude,
-                One_Point_Occlude,
-                Two_Point_Occlude,
-                Three_Point_Occlude
+        void calculate_face_visibility(MeshConstPtr mesh, const BVHTree &bvh_tree,
+                                       TextureViewList &texture_views, const Parameter &param,
+                                       FacesVisibility &face_visibilities) {
+            const std::vector<unsigned int> &faces = mesh->get_faces();
+            const std::vector<math::Vec3f> &vertices = mesh->get_vertices();
+
+            const std::size_t n_faces = mesh->get_faces().size() / 3;
+            const std::size_t n_views = texture_views.size();
+
+            FaceProjectionInfoList face_proj_info_list(n_faces);
+            calculate_face_projection_infos(mesh, bvh_tree, param, texture_views, &face_proj_info_list);
+
+            // camera outlier detection
+            std::vector<std::set<std::size_t>> face_outliers(n_faces);
+            for (std::size_t i = 0; i < face_proj_info_list.size(); i++) {
+                std::vector<Base::FaceProjectionInfo> &infos = face_proj_info_list.at(i);
+                OutlierDetection::detect_photometric_outliers(infos, param, &(face_outliers.at(i)));
+            }
+
+#pragma omp parallel for schedule(dynamic)
+            for (int face_id = 0; face_id < n_faces; face_id++) {
+                const std::vector<Base::FaceProjectionInfo> &face_infos = face_proj_info_list[face_id];
+                for (int proj_id = 0; proj_id < face_infos.size(); proj_id++) {
+                    const Base::FaceProjectionInfo &info = face_infos[proj_id];
+                    if (param.outlier_removal != Outlier_Removal_None) {
+                        if (face_outliers[face_id].find(info.view_id) != face_outliers[face_id].end()) {
+                            continue;
+                        }
+                    }
+
+//                        face_visibilities[face_id].insert(info.view_id);
+                    face_visibilities[face_id].insert(
+                            __inner__::FaceQuality(info.view_id, info.quality, info.gauss_value));
+                }
+            }
+        }
+
+        double computeFaceViewCosine(long long face_id, const Base::TextureView &texture_view, MeshConstPtr mesh) {
+            const math::Vec3f &view_pos = texture_view.get_pos();
+            const std::vector<unsigned int> &faces = mesh->get_faces();
+            const std::vector<math::Vec3f> &vertices = mesh->get_vertices();
+            const mve::TriangleMesh::NormalList &face_normals = mesh->get_face_normals();
+
+            const math::Vec3f &v1 = vertices[faces[face_id * 3]];
+            const math::Vec3f &v2 = vertices[faces[face_id * 3 + 1]];
+            const math::Vec3f &v3 = vertices[faces[face_id * 3 + 2]];
+            const math::Vec3f face_center = (v1 + v2 + v3) / 3.0f;
+
+            const math::Vec3f &face_normal = face_normals[face_id];
+
+            const math::Vec3f face_to_view_vec = (view_pos - face_center).normalized();
+            return face_to_view_vec.dot(face_normal);
+        }
+
+        void setFaceDefaultLabel(MeshConstPtr mesh, Base::LabelGraph &graph,
+                                 std::vector<std::set<__inner__::FaceQuality>> &faceVisibilities,
+                                 TextureViewList &textureViews, const BVHTree &bvhTree,
+                                 const Parameter &param) {
+            // list all un-labeled face
+            std::set<std::size_t> un_labeled_faces;
+            for (std::size_t i = 0; i < graph.num_nodes(); i++) {
+                if (graph.get_label(i) == 0) {
+                    un_labeled_faces.insert(i);
+                }
+            }
+
+            {
+                // set label from adjacent faces
+                bool decreased = true;
+                while (decreased) {
+                    decreased = false;
+                    for (auto it = un_labeled_faces.begin(); it != un_labeled_faces.end();) {
+                        // try to set label from adjacent labels
+                        std::size_t un_labeled_face_id = (*it);
+                        if (graph.get_label(un_labeled_face_id) != 0) {
+                            it++;
+                            continue;
+                        }
+
+                        const std::set<__inner__::FaceQuality> &face_camera_visibility = faceVisibilities[un_labeled_face_id];
+                        bool is_labeled = false;
+                        std::size_t chosen_label = 0;
+                        double face_view_score = -1.0;
+
+                        const std::vector<std::size_t> &adj_faces = graph.get_adj_nodes(un_labeled_face_id);
+                        for (auto it_adj = adj_faces.begin(); it_adj != adj_faces.end(); it_adj++) {
+                            const std::size_t adj_label = graph.get_label((*it_adj));
+                            if (adj_label == 0) {
+                                continue;
+                            }
+
+                            __inner__::FaceQuality adj_label_quality = __inner__::FaceQuality(adj_label - 1);
+                            if (face_camera_visibility.find(adj_label_quality) ==
+                                face_camera_visibility.end()) {
+                                continue;
+                            }
+
+                            // calculate angle score
+                            {
+                                const Base::TextureView &texture_view = textureViews[adj_label - 1];
+                                double cosine_angle = computeFaceViewCosine(un_labeled_face_id, texture_view, mesh);
+
+                                if (face_view_score < Degree_15_Cosine) {
+                                    if (cosine_angle > 0 && cosine_angle > face_view_score) {
+                                        face_view_score = cosine_angle;
+                                        is_labeled = true;
+                                        chosen_label = adj_label;
+                                    }
+                                }
+                            }
+                        }
+
+                        if (is_labeled) {
+                            decreased = true;
+                            graph.set_label(un_labeled_face_id, chosen_label);
+                            un_labeled_faces.erase(it++);
+                        } else {
+                            it++;
+                        }
+                    }
+                }
+            }
+
+            {
+                // set default label
+                if (un_labeled_faces.size() > 0) {
+                    for (auto it = un_labeled_faces.begin(); it != un_labeled_faces.end();) {
+                        std::size_t un_labeled_face_id = (*it);
+                        if (graph.get_label(un_labeled_face_id) != 0) {
+                            it++;
+                            continue;
+                        }
+
+                        double face_view_score = -1.0;
+                        std::size_t chosen_label = 0;
+                        const std::set<__inner__::FaceQuality> &face_camera_visibility = faceVisibilities[un_labeled_face_id];
+                        for (std::set<__inner__::FaceQuality>::const_iterator it_camera = face_camera_visibility.begin();
+                             it_camera != face_camera_visibility.end(); it_camera++) {
+                            const Base::TextureView &texture_view = textureViews[(*it_camera).view_id];
+                            double cosine_angle = computeFaceViewCosine(un_labeled_face_id, texture_view, mesh);
+
+                            if (cosine_angle > 0 && cosine_angle > face_view_score) {
+                                face_view_score = cosine_angle;
+                                chosen_label = (*it_camera).view_id + 1;
+                            }
+                        }
+
+                        if (chosen_label != 0) {
+                            graph.set_label(un_labeled_face_id, chosen_label);
+                            un_labeled_faces.erase(it++);
+                        } else {
+                            it++;
+                        }
+                    }
+                }
+            }
+
+            {
+                // check self occlusion case
+                if (un_labeled_faces.size() > 0) {
+                    for (auto it = un_labeled_faces.begin(); it != un_labeled_faces.end();) {
+                        // try to set label from adjacent labels
+                        std::size_t un_labeled_face_id = (*it);
+                        if (graph.get_label(un_labeled_face_id) != 0) {
+                            it++;
+                            continue;
+                        }
+
+                        bool is_labeled = false;
+                        std::size_t chosen_label = 0;
+                        double face_view_score = -1.0;
+
+                        const std::vector<std::size_t> &adj_faces = graph.get_adj_nodes(un_labeled_face_id);
+                        for (auto it_adj = adj_faces.begin(); it_adj != adj_faces.end(); it_adj++) {
+                            const std::size_t adj_label = graph.get_label((*it_adj));
+                            if (adj_label == 0) {
+                                continue;
+                            }
+
+                            const std::size_t adj_camera_id = adj_label - 1;
+                            const Base::TextureView &texture_view = textureViews[adj_camera_id];
+
+                            __inner__::OcclusionLevel occlusion_level = __inner__::check_occlusion_level(param, mesh,
+                                                                                                         bvhTree,
+                                                                                                         texture_view,
+                                                                                                         un_labeled_face_id);
+                            if (occlusion_level == __inner__::Three_Point_Occlude) {
+                                continue;
+                            }
+
+                            // calculate angle score
+                            {
+                                double cosine_angle = computeFaceViewCosine(un_labeled_face_id, texture_view, mesh);
+
+                                if (face_view_score < Degree_15_Cosine) {
+                                    if (cosine_angle > 0 && cosine_angle > face_view_score) {
+                                        face_view_score = cosine_angle;
+                                        is_labeled = true;
+                                        chosen_label = adj_label;
+                                    }
+                                }
+                            }
+                        }
+
+                        if (is_labeled) {
+                            graph.set_label(un_labeled_face_id, chosen_label);
+                            un_labeled_faces.erase(it++);
+                        } else {
+                            it++;
+                        }
+                    }
+                }
+            }
+        }
+
+        namespace RegionGrowing {
+
+            struct OverlapRateResult {
+                std::set<unsigned int> overlappedFaces;
+
+                OverlapRateResult() {}
             };
 
-            OcclusionLevel check_occlusion_level(
-                    const Parameter &param, MeshConstPtr mesh, const BVHTree &bvh_tree,
-                    const Base::TextureView &texture_view, std::size_t face_id) {
+            bool overlapCriteria(unsigned int faceID, MeshConstPtr mesh,
+                                 unsigned int cameraID, TextureViewList &textureViews) {
+                const Base::TextureView &textureView = textureViews[cameraID];
+                const math::Vec3f &cameraDirection = textureView.get_viewing_direction();
 
-                const std::vector<unsigned int> &faces = mesh->get_faces();
-                const std::vector<math::Vec3f> &vertices = mesh->get_vertices();
-                const mve::TriangleMesh::NormalList &face_normals = mesh->get_face_normals();
+                const mve::TriangleMesh::NormalList &faceNormals = mesh->get_face_normals();
+                const math::Vec3f &faceNormal = faceNormals[faceID];
 
-                const math::Vec3f &view_pos = texture_view.get_pos();
-                const math::Vec3f &viewing_direction = texture_view.get_viewing_direction();
+                // computeFaceViewCosine
 
-                const math::Vec3f &v1 = vertices[faces[face_id * 3]];
-                const math::Vec3f &v2 = vertices[faces[face_id * 3 + 1]];
-                const math::Vec3f &v3 = vertices[faces[face_id * 3 + 2]];
-                const math::Vec3f &face_normal = face_normals[face_id];
-                const math::Vec3f face_center = (v1 + v2 + v3) / 3.0f;
+                double normalCameraDirCos = faceNormal.dot((-cameraDirection));
+                double faceViewCos = computeFaceViewCosine(faceID, textureView, mesh);
 
-                math::Vec3f view_to_face_vec = (face_center - view_pos).normalized();
-                math::Vec3f face_to_view_vec = (view_pos - face_center).normalized();
-
-                float viewing_angle = face_to_view_vec.dot(face_normal);
-                if (viewing_angle < 0.0f || viewing_direction.dot(view_to_face_vec) < 0.0f) {
-                    return Three_Point_Occlude;
+                if (normalCameraDirCos <= 0 || faceViewCos <= 0) {
+                    return false;
+                } else if (normalCameraDirCos >= Degree_40_Cosine && faceViewCos > Degree_40_Cosine) {
+                    return true;
+                } else {
+                    return false;
                 }
 
-                if (!texture_view.inside(v1, v2, v3)) {
-                    return Three_Point_Occlude;
+                // TODO 有多种方式
+                // TODO 考虑相邻图像的邻接性
+                // TODO 考虑图像的形变
+            }
+
+            void computeFaceCameraOverlapRate(
+                    std::set<unsigned int> &faces, MeshConstPtr mesh,
+                    std::map<unsigned int, OverlapRateResult> &cameras, TextureViewList &textureViews,
+                    std::map<unsigned int, std::set<unsigned int>> &faceCameraMap,
+                    const std::vector<std::set<__inner__::FaceQuality>> &faceVisibilities) {
+                for (std::set<unsigned int>::iterator it = faces.begin(); it != faces.end(); it++) {
+                    unsigned int faceID = (*it);
+                    const std::set<__inner__::FaceQuality> &visibleCameras = faceVisibilities[faceID];
+                    for (std::set<__inner__::FaceQuality>::const_iterator cit = visibleCameras.begin();
+                         cit != visibleCameras.end(); cit++) {
+                        unsigned int cameraID = cit->view_id;
+                        bool isOverlap = overlapCriteria(faceID, mesh, cameraID, textureViews);
+                        if (isOverlap) {
+                            cameras[cameraID].overlappedFaces.insert(faceID);
+                            faceCameraMap[faceID].insert(cameraID);
+                        } else {
+                            continue;
+                        }
+                    }
+                }
+            }
+
+            void tryOverlap(std::set<unsigned int> &faces, std::map<unsigned int, OverlapRateResult> &cameras,
+                            std::map<unsigned int, std::set<unsigned int>> &faceCameraMap,
+                            Base::LabelGraph &graph, unsigned int cameraId) {
+                if (cameras.find(cameraId) == cameras.end()) {
+                    LOG_DEBUG("tryOverlap - cameraID NOT EXISTS");
+                    return;
                 }
 
-                int n_occlude_points = 0;
-                math::Vec3f const *samples[] = {&v1, &v2, &v3};
-                for (std::size_t k = 0; k < sizeof(samples) / sizeof(samples[0]); ++k) {
-                    BVHTree::Ray ray;
-                    ray.origin = *samples[k];
-                    ray.dir = view_pos - ray.origin;
-                    ray.tmax = ray.dir.norm();
-                    ray.tmin = ray.tmax * 0.0001f;
-                    ray.dir.normalize();
+                const OverlapRateResult &result = cameras[cameraId];
+                for (std::set<unsigned int>::iterator it = result.overlappedFaces.begin();
+                     it != result.overlappedFaces.end(); it++) {
+                    unsigned int faceID = (*it);
+                    // TODO 检查 view_id 和 cameraID 是不是都是从 0 下表开始的
+                    faces.erase(faceID);
 
-                    BVHTree::Hit hit;
-                    if (bvh_tree.intersect(ray, &hit)) {
-                        n_occlude_points++;
+                    std::set<unsigned int> &cameraIDs = faceCameraMap[faceID];
+                    for (std::set<unsigned int>::const_iterator it = cameraIDs.begin(); it != cameraIDs.end(); it++) {
+                        unsigned int relCameraID = (*it);
+                        if (relCameraID != cameraId) {
+                            cameras[relCameraID].overlappedFaces.erase(faceID);
+                        }
+                    }
+
+                    graph.set_label(faceID, cameraId + 1);
+                }
+                cameras.erase(cameraId);
+            }
+
+            unsigned int getMaxOverlapRateCamera(std::map<unsigned int, OverlapRateResult> &restCameras) {
+                unsigned int ans = 0;
+                unsigned int maxOverlapFaces = 0;
+                bool isFirstInit = true;
+
+                for (std::map<unsigned int, OverlapRateResult>::iterator it = restCameras.begin();
+                     it != restCameras.end(); it++) {
+
+                    int nOverlapFaces = it->second.overlappedFaces.size();
+                    if (isFirstInit) {
+                        maxOverlapFaces = nOverlapFaces;
+                        ans = it->first;
+                        isFirstInit = false;
+                    } else {
+                        if (maxOverlapFaces < nOverlapFaces) {
+                            maxOverlapFaces = nOverlapFaces;
+                            ans = it->first;
+                        } else {
+                            continue;
+                        }
+                    }
+                }
+                return ans;
+            }
+
+            void greedyBasedRegionGrowing() {
+                // TODO
+            }
+
+            void solve_RegionGrowing_problem(MeshConstPtr mesh, const BVHTree &bvhTree, const Parameter &param,
+                                             TextureViewList &textureViews, Base::LabelGraph &graph) {
+                // calculate face-camera visibility
+                std::vector<std::set<__inner__::FaceQuality>> faceVisibilities(mesh->get_faces().size() / 3);
+                calculate_face_visibility(mesh, bvhTree, textureViews, param, faceVisibilities);
+                LOG_DEBUG("RegionGrowing - Face visibilities computation DONE");
+
+                // compute initial face-camera mapping based overlap rate
+                const unsigned int nFaces = mesh->get_faces().size() / 3;
+                const unsigned int nCameras = textureViews.size();
+
+                unsigned int nRestFaces = nFaces;
+                unsigned int nRestCameras = nCameras;
+
+                std::set<unsigned int> restFaces;
+                std::map<unsigned int, std::set<unsigned int>> faceCameraMap;
+                {
+                    for (unsigned int i = 0; i < nFaces; i++) {
+                        restFaces.insert(i);
+                        faceCameraMap[i] = std::set<unsigned int>();
                     }
                 }
 
-                switch (n_occlude_points) {
-                    case 0:
-                        return Zero_Point_Occlude;
-                    case 1:
-                        return One_Point_Occlude;
-                    case 2:
-                        return Two_Point_Occlude;
-                    default:
-                        return Three_Point_Occlude;
+                std::map<unsigned int, OverlapRateResult> restCameras;
+                {
+                    for (unsigned int i = 0; i < nCameras; i++) {
+                        restCameras[i] = OverlapRateResult();
+                    }
                 }
-            }
 
-            struct CameraScore {
-                double score;
-                int camera_id;
-                bool is_full_overlap;
+                computeFaceCameraOverlapRate(restFaces, mesh, restCameras, textureViews,
+                                             faceCameraMap, faceVisibilities);
+                LOG_DEBUG("RegionGrowing - Camera overlap rate computation DONE");
 
-                CameraScore() : score(0.), camera_id(-1), is_full_overlap(false) {}
+                while (nRestFaces > 0 && nRestCameras > 0) {
+                    std::size_t maxOverlapRateIndex = getMaxOverlapRateCamera(restCameras);
+                    tryOverlap(restFaces, restCameras, faceCameraMap, graph, maxOverlapRateIndex);
 
-                CameraScore(double s, int c, bool overlap) :
-                        score(s), camera_id(c), is_full_overlap(overlap) {}
-            };
-
-            bool func_camera_score_cmp(const struct CameraScore &a, const struct CameraScore &b) {
-                return a.score < b.score;
-            }
-
-            struct FaceQuality {
-                // camera id, range in [0, camera_num - 1]
-                std::uint16_t view_id;
-                float quality = 0.0f;
-                double gauss_value = 0.0f;
-
-                explicit FaceQuality(std::uint16_t vid) : view_id(vid) {}
-
-                explicit FaceQuality(std::uint16_t vid, float q, double g) :
-                        view_id(vid), quality(q), gauss_value(g) {}
-
-                bool operator<(const FaceQuality &other) const {
-                    return view_id < other.view_id;
+                    nRestFaces = restFaces.size();
+                    nRestCameras = restCameras.size();
                 }
-            };
+                LOG_DEBUG("RegionGrowing - nRestFaces: {}, nRestCameras: {}", nRestFaces, nRestCameras);
+
+                greedyBasedRegionGrowing();
+
+                setFaceDefaultLabel(mesh, graph, faceVisibilities, textureViews, bvhTree, param);
+            }
         }
 
         namespace Projection {
             using PlaneGroup = MeshPolyRefinement::Base::PlaneGroup;
             using TriMesh = MeshPolyRefinement::Base::TriMesh;
             using LabelGraph = MvsTexturing::Base::LabelGraph;
-            using FacesVisibility = std::vector<std::set<__inner__::FaceQuality>>;
 //            using FacesVisibility = std::vector<std::set<std::size_t>>;
-
-            void calculate_face_visibility(MeshConstPtr mesh, const BVHTree &bvh_tree,
-                                           TextureViewList &texture_views, const Parameter &param,
-                                           FacesVisibility &face_visibilities) {
-                const std::vector<unsigned int> &faces = mesh->get_faces();
-                const std::vector<math::Vec3f> &vertices = mesh->get_vertices();
-
-                const std::size_t n_faces = mesh->get_faces().size() / 3;
-                const std::size_t n_views = texture_views.size();
-
-                FaceProjectionInfoList face_proj_info_list(n_faces);
-                calculate_face_projection_infos(mesh, bvh_tree, param, texture_views, &face_proj_info_list);
-
-                // camera outlier detection
-                std::vector<std::set<std::size_t>> face_outliers(n_faces);
-                for (std::size_t i = 0; i < face_proj_info_list.size(); i++) {
-                    std::vector<Base::FaceProjectionInfo> &infos = face_proj_info_list.at(i);
-                    OutlierDetection::detect_photometric_outliers(infos, param, &(face_outliers.at(i)));
-                }
-
-#pragma omp parallel for schedule(dynamic)
-                for (int face_id = 0; face_id < n_faces; face_id++) {
-                    const std::vector<Base::FaceProjectionInfo> &face_infos = face_proj_info_list[face_id];
-                    for (int proj_id = 0; proj_id < face_infos.size(); proj_id++) {
-                        const Base::FaceProjectionInfo &info = face_infos[proj_id];
-                        if (param.outlier_removal != Outlier_Removal_None) {
-                            if (face_outliers[face_id].find(info.view_id) != face_outliers[face_id].end()) {
-                                continue;
-                            }
-                        }
-
-//                        face_visibilities[face_id].insert(info.view_id);
-                        face_visibilities[face_id].insert(
-                                __inner__::FaceQuality(info.view_id, info.quality, info.gauss_value));
-                    }
-                }
-            }
-
-            double face_view_cos(long long face_id, const Base::TextureView &texture_view, MeshConstPtr mesh) {
-                const math::Vec3f &view_pos = texture_view.get_pos();
-                const std::vector<unsigned int> &faces = mesh->get_faces();
-                const std::vector<math::Vec3f> &vertices = mesh->get_vertices();
-                const mve::TriangleMesh::NormalList &face_normals = mesh->get_face_normals();
-
-                const math::Vec3f &v1 = vertices[faces[face_id * 3]];
-                const math::Vec3f &v2 = vertices[faces[face_id * 3 + 1]];
-                const math::Vec3f &v3 = vertices[faces[face_id * 3 + 2]];
-                const math::Vec3f face_center = (v1 + v2 + v3) / 3.0f;
-
-                const math::Vec3f &face_normal = face_normals[face_id];
-
-                const math::Vec3f face_to_view_vec = (view_pos - face_center).normalized();
-                return face_to_view_vec.dot(face_normal);
-            }
 
             void camera_project_to_plane(const MeshConstPtr mesh, const mve::MeshInfo &mesh_info,
                                          const FaceGroup &group, const FacesVisibility &f_visibility,
@@ -412,7 +736,7 @@ namespace MvsTexturing {
 
                         if (visibility.find(__inner__::FaceQuality(camera_id - 1)) != visibility.end()) {
                             overlap_count++;
-                            avg_cosine += face_view_cos(face_id, texture_view, mesh);
+                            avg_cosine += computeFaceViewCosine(face_id, texture_view, mesh);
                         } else {
                             is_full_overlap = false;
                         }
@@ -457,161 +781,7 @@ namespace MvsTexturing {
                     project_to_plane(mesh, mesh_info, group, texture_views, face_visibilities, graph);
                 }
 
-                // consider default projection case
-                {
-                    // list all un-labeled face
-                    std::set<std::size_t> un_labeled_faces;
-                    for (std::size_t i = 0; i < graph.num_nodes(); i++) {
-                        if (graph.get_label(i) == 0) {
-                            un_labeled_faces.insert(i);
-                        }
-                    }
-
-                    {
-                        // set label from adjacent faces
-                        bool decreased = true;
-                        while (decreased) {
-                            decreased = false;
-                            for (auto it = un_labeled_faces.begin(); it != un_labeled_faces.end();) {
-                                // try to set label from adjacent labels
-                                std::size_t un_labeled_face_id = (*it);
-                                if (graph.get_label(un_labeled_face_id) != 0) {
-                                    it++;
-                                    continue;
-                                }
-
-                                const std::set<__inner__::FaceQuality> &face_camera_visibility = face_visibilities[un_labeled_face_id];
-                                bool is_labeled = false;
-                                std::size_t chosen_label = 0;
-                                double face_view_score = -1.0;
-
-                                const std::vector<std::size_t> &adj_faces = graph.get_adj_nodes(un_labeled_face_id);
-                                for (auto it_adj = adj_faces.begin(); it_adj != adj_faces.end(); it_adj++) {
-                                    const std::size_t adj_label = graph.get_label((*it_adj));
-                                    if (adj_label == 0) {
-                                        continue;
-                                    }
-
-                                    __inner__::FaceQuality adj_label_quality = __inner__::FaceQuality(adj_label - 1);
-                                    if (face_camera_visibility.find(adj_label_quality) ==
-                                        face_camera_visibility.end()) {
-                                        continue;
-                                    }
-
-                                    // calculate angle score
-                                    {
-                                        const Base::TextureView &texture_view = texture_views[adj_label - 1];
-                                        double cosine_angle = face_view_cos(un_labeled_face_id, texture_view, mesh);
-
-                                        if (face_view_score < Degree_15_Cosine) {
-                                            if (cosine_angle > 0 && cosine_angle > face_view_score) {
-                                                face_view_score = cosine_angle;
-                                                is_labeled = true;
-                                                chosen_label = adj_label;
-                                            }
-                                        }
-                                    }
-                                }
-
-                                if (is_labeled) {
-                                    decreased = true;
-                                    graph.set_label(un_labeled_face_id, chosen_label);
-                                    un_labeled_faces.erase(it++);
-                                } else {
-                                    it++;
-                                }
-                            }
-                        }
-                    }
-
-                    {
-                        // set default label
-                        if (un_labeled_faces.size() > 0) {
-                            for (auto it = un_labeled_faces.begin(); it != un_labeled_faces.end();) {
-                                std::size_t un_labeled_face_id = (*it);
-                                if (graph.get_label(un_labeled_face_id) != 0) {
-                                    it++;
-                                    continue;
-                                }
-
-                                double face_view_score = -1.0;
-                                std::size_t chosen_label = 0;
-                                const std::set<__inner__::FaceQuality> &face_camera_visibility = face_visibilities[un_labeled_face_id];
-                                for (std::set<__inner__::FaceQuality>::const_iterator it_camera = face_camera_visibility.begin();
-                                     it_camera != face_camera_visibility.end(); it_camera++) {
-                                    const Base::TextureView &texture_view = texture_views[(*it_camera).view_id];
-                                    double cosine_angle = face_view_cos(un_labeled_face_id, texture_view, mesh);
-
-                                    if (cosine_angle > 0 && cosine_angle > face_view_score) {
-                                        face_view_score = cosine_angle;
-                                        chosen_label = (*it_camera).view_id + 1;
-                                    }
-                                }
-
-                                if (chosen_label != 0) {
-                                    graph.set_label(un_labeled_face_id, chosen_label);
-                                    un_labeled_faces.erase(it++);
-                                } else {
-                                    it++;
-                                }
-                            }
-                        }
-                    }
-
-                    {
-                        // check self occlusion case
-                        if (un_labeled_faces.size() > 0) {
-                            for (auto it = un_labeled_faces.begin(); it != un_labeled_faces.end();) {
-                                // try to set label from adjacent labels
-                                std::size_t un_labeled_face_id = (*it);
-                                if (graph.get_label(un_labeled_face_id) != 0) {
-                                    it++;
-                                    continue;
-                                }
-
-                                bool is_labeled = false;
-                                std::size_t chosen_label = 0;
-                                double face_view_score = -1.0;
-
-                                const std::vector<std::size_t> &adj_faces = graph.get_adj_nodes(un_labeled_face_id);
-                                for (auto it_adj = adj_faces.begin(); it_adj != adj_faces.end(); it_adj++) {
-                                    const std::size_t adj_label = graph.get_label((*it_adj));
-                                    if (adj_label == 0) {
-                                        continue;
-                                    }
-
-                                    const std::size_t adj_camera_id = adj_label - 1;
-                                    const Base::TextureView &texture_view = texture_views[adj_camera_id];
-
-                                    __inner__::OcclusionLevel occlusion_level = __inner__::check_occlusion_level(param, mesh, bvh_tree, texture_view, un_labeled_face_id);
-                                    if (occlusion_level == __inner__::Three_Point_Occlude) {
-                                        continue;
-                                    }
-
-                                    // calculate angle score
-                                    {
-                                        double cosine_angle = face_view_cos(un_labeled_face_id, texture_view, mesh);
-
-                                        if (face_view_score < Degree_15_Cosine) {
-                                            if (cosine_angle > 0 && cosine_angle > face_view_score) {
-                                                face_view_score = cosine_angle;
-                                                is_labeled = true;
-                                                chosen_label = adj_label;
-                                            }
-                                        }
-                                    }
-                                }
-
-                                if (is_labeled) {
-                                    graph.set_label(un_labeled_face_id, chosen_label);
-                                    un_labeled_faces.erase(it++);
-                                } else {
-                                    it++;
-                                }
-                            }
-                        }
-                    }
-                }
+                setFaceDefaultLabel(mesh, graph, face_visibilities, texture_views, bvh_tree, param);
             }
 
             void solve_projection_problem(MeshConstPtr mesh, const mve::MeshInfo &mesh_info,

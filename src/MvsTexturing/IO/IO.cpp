@@ -469,7 +469,7 @@ namespace MvsTexturing {
                     memcpy(tmp_face_colors.data(), face_colors->buffer.get(), face_colors->buffer.size_bytes());
                     FC.resize(face_colors->count, 3);
                     int r = 0;
-                    for (const uchar3 &c : tmp_face_colors) {
+                    for (const uchar3 &c: tmp_face_colors) {
                         FC.row(r++) = Eigen::RowVector3d((double) c.r, (double) c.g, (double) c.b);
                     }
                 }
@@ -524,7 +524,7 @@ namespace MvsTexturing {
                 Obj::ObjModel::Groups &groups = obj_model.get_groups();
                 Obj::MaterialLib &material_lib = obj_model.get_material_lib();
 
-                for (Base::TextureAtlas::Ptr texture_atlas : texture_atlases) {
+                for (Base::TextureAtlas::Ptr texture_atlas: texture_atlases) {
                     Obj::Material material;
                     const std::size_t n = material_lib.size();
                     material.name = std::string("material") + util::string::get_filled(n, 4);

@@ -160,6 +160,7 @@ int main(int argc, char **argv) {
     if (param.debug_mode) {
         spdlog::set_level(spdlog::level::debug);
     }
+    LOG_DEBUG("###### MvsTexturing ------ args, plane_density: {}", param.plane_density);
 
     using namespace MvsTexturing;
     util::WallTimer whole_timer;
@@ -579,6 +580,10 @@ bool map_textures(MeshPtr input_mesh, MeshInfo &mesh_info, TextureViews &texture
                     }
                 }
                 LOG_INFO(" - projection optimization done");
+            } else if (param.method_type == "region_growing") {
+                LOG_INFO(" - region growing algorithm started ... ");
+                VS::RegionGrowing::solve_RegionGrowing_problem(input_mesh, bvh_tree, param, texture_views, graph);
+                LOG_INFO(" - region growing algorithm done");
             } else {
                 LOG_ERROR(" - view selection method not supported: {}", param.method_type);
                 return false;
@@ -783,7 +788,7 @@ bool texture_from_dense_to_sparse_model(
     int ret = MvsTexturing::MeshRepair::create_plane_patches_on_sparse_mesh(
             param, sparse_mesh.m_vertices, sparse_mesh.m_faces, planar_groups,
             dense_mesh.m_vertices, dense_mesh.m_faces, dense_mesh_face_texture_coords, dense_mesh_face_materials,
-            face_subdivisions, final_patches, param.plane_density);
+            face_subdivisions, final_patches, Base::TexturePatch::kTexturePatchPadding, param.plane_density);
 
     if (!ret) {
         LOG_ERROR(" - texture_from_dense_to_sparse_model() : create plane patches failed");
@@ -795,7 +800,7 @@ bool texture_from_dense_to_sparse_model(
     ret = MeshRepair::create_irregular_patches_on_sparse_mesh(
             sparse_mesh.m_vertices, sparse_mesh.m_faces, irregular_patch_faces,
             dense_mesh_face_texture_coords, dense_mesh_face_materials,
-            face_subdivisions, final_patches, param.plane_density);
+            face_subdivisions, final_patches, Base::TexturePatch::kTexturePatchPadding, param.plane_density);
     if (!ret) {
         LOG_ERROR(" - texture_from_dense_to_sparse_model() : create irregular patches failed");
         return false;

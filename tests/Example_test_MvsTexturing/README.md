@@ -116,18 +116,34 @@
 
 - aym(debug case)
     - WorkDirectory: /Users/stormphoenix/Workspace/Projects/CLionProjects/3dReconstruction/Dataset/aym
-    - Options: --scene_file ./visualSFM/nvm_anyuanmen.nvm --input_mesh ./Input/model_labeled.ply --output_prefix ./Output_TexturePipeline/Textured_model --mrf_call_lib mapmap --outlier_removal gauss_clamping --method_type projection --keep_unseen_faces true --skip_global_seam_leveling true --skip_local_seam_leveling true --skip_hole_filling true
+    - Options: --scene_file ./visualSFM/nvm_anyuanmen.nvm --input_mesh ./Input/model_labeled.ply --output_prefix ./Output_TexturePipeline/proj_model --mrf_call_lib mapmap --outlier_removal gauss_clamping --method_type projection --keep_unseen_faces true --skip_global_seam_leveling true --skip_local_seam_leveling true --skip_hole_filling true
     - Options: --scene_file ./visualSFM/nvm_anyuanmen.nvm --input_mesh ./Input/model_labeled_sim_2.ply --output_prefix ./Output_TexturePipeline/Textured_model --mrf_call_lib mapmap --outlier_removal gauss_clamping --method_type projection --keep_unseen_faces true --skip_hole_filling true
     - Options: --scene_file ./visualSFM/nvm_anyuanmen.nvm --input_mesh ./Input/debug.ply --output_prefix ./Output_TexturePipeline/debug_make_dense --mrf_call_lib openmvs --outlier_removal gauss_clamping --method_type mrf --keep_unseen_faces true --skip_hole_filling true
     
-- M1
+- aym(Projection)
+     - WorkDirectory: /Users/stormphoenix/Workspace/Projects/CLionProjects/3dReconstruction/Dataset/aym
+     - Options: --scene_file ./visualSFM/nvm_anyuanmen.nvm --input_mesh ./Input/model_labeled.ply --output_prefix ./Output_TexturePipeline/proj_model --mrf_call_lib mapmap --outlier_removal gauss_clamping --method_type projection --keep_unseen_faces true --skip_global_seam_leveling true --skip_local_seam_leveling true --skip_hole_filling true
+  
+- aym(RegionGrowing)
+     - WorkDirectory: /Users/stormphoenix/Workspace/Projects/CLionProjects/3dReconstruction/Dataset/aym
+     - Options: --scene_file ./visualSFM/nvm_anyuanmen.nvm --input_mesh ./Input/model_labeled.ply --output_prefix ./Output_TexturePipeline/regiongrowing_model --mrf_call_lib mapmap --outlier_removal gauss_clamping --method_type region_growing --keep_unseen_faces true --skip_global_seam_leveling true --skip_local_seam_leveling true --skip_hole_filling=true --debug_mode=true
+           
+- M1(Projection)
     - WorkDirectory: /Users/stormphoenix/Workspace/Projects/CLionProjects/3dReconstruction/Dataset/M1
     - Options: --scene_file ./visualSFM/M1.nvm --input_mesh ./input/model_0.ply --output_prefix ./Output_TexturePipeline/model_proj --mrf_call_lib mapmap --outlier_removal gauss_clamping --method_type projection --keep_unseen_faces true --skip_hole_filling true
+
+- M1(RegionGrowing)
+    - WorkDirectory: /Users/stormphoenix/Workspace/Projects/CLionProjects/3dReconstruction/Dataset/M1
+    - Options: --scene_file ./visualSFM/M1.nvm --input_mesh ./input/model_0.ply --output_prefix ./Output_TexturePipeline/regiongrowing --mrf_call_lib mapmap --outlier_removal gauss_clamping --method_type region_growing --keep_unseen_faces true --skip_hole_filling true --debug_mode=true --plane_density=1000 
     
 - elephant
     - WorkDirectory: /Users/stormphoenix/Workspace/Projects/CLionProjects/3dReconstruction/Dataset/elephant
-    - Projection|无Outlier --scene_file ./visualSFM/test.nvm --input_mesh ./Input/model_0_labeled.ply --output_prefix ./Output_TexturePipeline/model_Projection --mrf_call_lib mapmap --method_type projection --keep_unseen_faces true --skip_hole_filling true --sparse_model=false --debug_mode=true
-    - Mapmap|无Outlier --scene_file ./visualSFM/test.nvm --input_mesh ./Input/model_0_labeled.ply --output_prefix ./Output_TexturePipeline/model_Mapmap_on-outlier --mrf_call_lib mapmap --method_type mrf --keep_unseen_faces true --skip_hole_filling true --sparse_model=false --debug_mode=true
+    - Projection|无Outlier: --scene_file ./visualSFM/test.nvm --input_mesh ./Input/model_0_labeled.ply --output_prefix ./Output_TexturePipeline/model_Projection --mrf_call_lib mapmap --method_type projection --keep_unseen_faces true --skip_hole_filling true --sparse_model=false --debug_mode=true
+    - Mapmap|无Outlier: --scene_file ./visualSFM/test.nvm --input_mesh ./Input/model_0_labeled.ply --output_prefix ./Output_TexturePipeline/model_Mapmap_on-outlier --mrf_call_lib mapmap --method_type mrf --keep_unseen_faces true --skip_hole_filling true --sparse_model=false --debug_mode=true
+    
+- elephant_ywk
+    - WorkDirectory: /Users/stormphoenix/Workspace/Projects/CLionProjects/3dReconstruction/Dataset/elephant01
+    - Projection Options: --scene_file ./visualSFM/ywk_simplified_20220419.nvm --input_mesh ./ywk_simplified_20220419.ply --output_prefix ./Output_TexturePipeline/ywk --mrf_call_lib mapmap --outlier_removal gauss_clamping --method_type projection --keep_unseen_faces true --skip_hole_filling true --sparse_model true --debug_mode=true --plane_density=1000  
     
 - elephant01    
     - WorkDirectory: /Users/stormphoenix/Workspace/Projects/CLionProjects/3dReconstruction/Dataset/elephant01

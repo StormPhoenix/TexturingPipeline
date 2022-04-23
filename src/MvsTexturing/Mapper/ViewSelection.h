@@ -19,6 +19,14 @@
 namespace MvsTexturing {
     namespace ViewSelection {
 
+        namespace RegionGrowing {
+            void solve_RegionGrowing_problem(mve::TriangleMesh::ConstPtr mesh,
+                                             const acc::BVHTree<unsigned int, math::Vec3f> &bvhTree,
+                                             const Parameter &param, std::vector<Base::TextureView> &textureViews,
+                                             Base::LabelGraph &graph);
+
+        }
+
         namespace Projection {
             using namespace Base;
 
