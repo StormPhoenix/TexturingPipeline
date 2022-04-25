@@ -18,7 +18,7 @@
 namespace MvsTexturing {
     namespace Base {
         TexturePatch::TexturePatch(int label, std::vector<std::size_t> const &faces,
-                                   std::vector<math::Vec2f>  const &texcoords, mve::FloatImage::Ptr image)
+                                   std::vector<math::Vec2f> const &texcoords, mve::FloatImage::Ptr image)
                 : label(label), faces(faces), texcoords(texcoords), image(image) {
 
             validity_mask = mve::ByteImage::create(get_width(), get_height(), 1);
@@ -26,7 +26,7 @@ namespace MvsTexturing {
             blending_mask = mve::ByteImage::create(get_width(), get_height(), 1);
         }
 
-        TexturePatch::TexturePatch(TexturePatch const & texture_patch) {
+        TexturePatch::TexturePatch(TexturePatch const &texture_patch) {
             label = texture_patch.label;
             faces = std::vector<std::size_t>(texture_patch.faces);
             texcoords = std::vector<math::Vec2f>(texture_patch.texcoords);
@@ -40,7 +40,7 @@ namespace MvsTexturing {
         const float sqrt_2 = sqrt(2);
 
         void
-        TexturePatch::adjust_colors(std::vector<math::Vec3f> const & adjust_values) {
+        TexturePatch::adjust_colors(std::vector<math::Vec3f> const &adjust_values) {
             assert(blending_mask != NULL);
 
             validity_mask->fill(0);
@@ -105,7 +105,7 @@ namespace MvsTexturing {
             }
 
             for (int i = 0; i < image->get_pixel_amount(); ++i) {
-                if (validity_mask->at(i, 0) != 0){
+                if (validity_mask->at(i, 0) != 0) {
                     for (int c = 0; c < 3; ++c) {
                         image->at(i, c) += iadjust_values->at(i, c);
                     }
@@ -125,7 +125,7 @@ namespace MvsTexturing {
             float const width = static_cast<float>(get_width());
 
             bool valid = (0.0f <= x && x < width && 0.0f <= y && y < height);
-            if (valid && validity_mask != NULL){
+            if (valid && validity_mask != NULL) {
                 /* Only pixel which can be correctly interpolated are valid. */
                 float cx = std::max(0.0f, std::min(width - 1.0f, x));
                 float cy = std::max(0.0f, std::min(height - 1.0f, y));
@@ -246,8 +246,8 @@ namespace MvsTexturing {
                     int x = it->first;
                     int y = it->second;
 
-                    for (int j = -1; j <= 1; j++){
-                        for (int i = -1; i <= 1; i++){
+                    for (int j = -1; j <= 1; j++) {
+                        for (int i = -1; i <= 1; i++) {
                             int nx = x + i;
                             int ny = y + j;
                             if (0 <= nx && nx < width &&
@@ -265,14 +265,14 @@ namespace MvsTexturing {
             for (int y = 1; y < height - 1; ++y) {
                 for (int x = 1; x < width - 1; ++x) {
                     // 128 代表 patch 的边界
-                    if (blending_mask->at(x, y, 0) == 128)  {
+                    if (blending_mask->at(x, y, 0) == 128) {
                         uint8_t n[] = {blending_mask->at(x - 1, y, 0),
                                        blending_mask->at(x + 1, y, 0),
                                        blending_mask->at(x, y - 1, 0),
                                        blending_mask->at(x, y + 1, 0)
                         };
                         bool valid = true;
-                        for (uint8_t v : n) {
+                        for (uint8_t v: n) {
                             if (v == 255) continue;
                             valid = false;
                         }
@@ -580,7 +580,7 @@ namespace MvsTexturing {
 
             // rescale image
             {
-                mve::FloatImage::Ptr tmp_image = mve::FloatImage::create(scale_width, scale_height, 3);
+                mve::FloatImage::Ptr tmp_image = mve::FloatImage::create(scale_width, scale_height, image->channels());
                 mve::image::rescale_linear<float>(image, tmp_image);
                 image.reset();
                 image = tmp_image;
@@ -588,7 +588,8 @@ namespace MvsTexturing {
 
             // rescale validity mask
             {
-                mve::ByteImage::Ptr tmp_image = mve::ByteImage::create(scale_width, scale_height, 3);
+                mve::ByteImage::Ptr tmp_image = mve::ByteImage::create(scale_width, scale_height,
+                                                                       validity_mask->channels());
                 mve::image::rescale_nearest<uint8_t>(validity_mask, tmp_image);
                 validity_mask.reset();
                 validity_mask = tmp_image;
@@ -596,7 +597,8 @@ namespace MvsTexturing {
 
             // rescale blending mask
             {
-                mve::ByteImage::Ptr tmp_image = mve::ByteImage::create(scale_width, scale_height, 3);
+                mve::ByteImage::Ptr tmp_image = mve::ByteImage::create(scale_width, scale_height,
+                                                                       blending_mask->channels());
                 mve::image::rescale_nearest<uint8_t>(blending_mask, tmp_image);
                 blending_mask.reset();
                 blending_mask = tmp_image;
