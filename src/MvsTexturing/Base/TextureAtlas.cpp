@@ -35,7 +35,7 @@ namespace MvsTexturing {
             assert(y >= 0 && y + src->height() + 2 * border <= dest->height());
 
             for (int i = 0; i < src->width() + 2 * border; ++i) {
-                for(int j = 0; j < src->height() + 2 * border; j++) {
+                for (int j = 0; j < src->height() + 2 * border; j++) {
                     int sx = i - border;
                     int sy = j - border;
 
@@ -113,8 +113,8 @@ namespace MvsTexturing {
             mve::ByteImage::ConstPtr patch_validity_mask = texture_patch->get_validity_mask();
             copy_into(patch_validity_mask, rect.min_x, rect.min_y, validity_mask, padding);
 
-            TexturePatch::Faces const & patch_faces = texture_patch->get_faces();
-            TexturePatch::Texcoords const & patch_texcoords = texture_patch->get_texcoords();
+            TexturePatch::Faces const &patch_faces = texture_patch->get_faces();
+            TexturePatch::Texcoords const &patch_texcoords = texture_patch->get_texcoords();
 
             /* Calculate the offset of the texture patches' relative texture coordinates */
             math::Vec2f offset = math::Vec2f(rect.min_x + padding, rect.min_y + padding);
@@ -198,9 +198,15 @@ namespace MvsTexturing {
             const int height = image->height();
 
             math::Matrix<float, 3, 3> gauss;
-            gauss[0] = 1.0f; gauss[1] = 2.0f; gauss[2] = 1.0f;
-            gauss[3] = 2.0f; gauss[4] = 4.0f; gauss[5] = 2.0f;
-            gauss[6] = 1.0f; gauss[7] = 2.0f; gauss[8] = 1.0f;
+            gauss[0] = 1.0f;
+            gauss[1] = 2.0f;
+            gauss[2] = 1.0f;
+            gauss[3] = 2.0f;
+            gauss[4] = 4.0f;
+            gauss[5] = 2.0f;
+            gauss[6] = 1.0f;
+            gauss[7] = 2.0f;
+            gauss[8] = 1.0f;
             gauss /= 16.0f;
 
             /* Calculate the set of invalid pixels at the border of texture patches. */
@@ -234,7 +240,7 @@ namespace MvsTexturing {
                 PixelVector new_valid_pixels;
 
                 PixelSet::iterator it = invalid_border_pixels.begin();
-                for (;it != invalid_border_pixels.end(); it++) {
+                for (; it != invalid_border_pixels.end(); it++) {
                     int x = it->first;
                     int y = it->second;
 
@@ -302,7 +308,7 @@ namespace MvsTexturing {
         }
 
         struct VectorCompare {
-            bool operator()(math::Vec2f const & lhs, math::Vec2f const & rhs) const {
+            bool operator()(math::Vec2f const &lhs, math::Vec2f const &rhs) const {
                 return lhs[0] < rhs[0] || (lhs[0] == rhs[0] && lhs[1] < rhs[1]);
             }
         };
@@ -311,10 +317,11 @@ namespace MvsTexturing {
 
         void
         TextureAtlas::merge_texcoords() {
-            Texcoords tmp; tmp.swap(this->texcoords);
+            Texcoords tmp;
+            tmp.swap(this->texcoords);
 
             TexcoordMap texcoord_map;
-            for (math::Vec2f const & texcoord : tmp) {
+            for (math::Vec2f const &texcoord: tmp) {
                 TexcoordMap::iterator iter = texcoord_map.find(texcoord);
                 if (iter == texcoord_map.end()) {
                     std::size_t texcoord_id = this->texcoords.size();

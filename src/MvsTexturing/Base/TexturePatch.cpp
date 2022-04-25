@@ -580,7 +580,7 @@ namespace MvsTexturing {
 
             // rescale image
             {
-                mve::FloatImage::Ptr tmp_image = mve::FloatImage::create(scale_width, scale_height, image->channels());
+                mve::FloatImage::Ptr tmp_image = mve::FloatImage::create(scale_width, scale_height, 3);
                 mve::image::rescale_linear<float>(image, tmp_image);
                 image.reset();
                 image = tmp_image;
@@ -588,8 +588,7 @@ namespace MvsTexturing {
 
             // rescale validity mask
             {
-                mve::ByteImage::Ptr tmp_image = mve::ByteImage::create(scale_width, scale_height,
-                                                                       validity_mask->channels());
+                mve::ByteImage::Ptr tmp_image = mve::ByteImage::create(scale_width, scale_height, 1);
                 mve::image::rescale_nearest<uint8_t>(validity_mask, tmp_image);
                 validity_mask.reset();
                 validity_mask = tmp_image;
@@ -597,8 +596,7 @@ namespace MvsTexturing {
 
             // rescale blending mask
             {
-                mve::ByteImage::Ptr tmp_image = mve::ByteImage::create(scale_width, scale_height,
-                                                                       blending_mask->channels());
+                mve::ByteImage::Ptr tmp_image = mve::ByteImage::create(scale_width, scale_height, 1);
                 mve::image::rescale_nearest<uint8_t>(blending_mask, tmp_image);
                 blending_mask.reset();
                 blending_mask = tmp_image;
