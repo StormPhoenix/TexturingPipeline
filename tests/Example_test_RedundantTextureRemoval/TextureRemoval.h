@@ -23,9 +23,6 @@ public:
 public:
     bool loadObjMesh(std::string file);
 
-    // TODO delete
-    void testSavePatchExample(unsigned int index);
-
     void removeRedundantTextures(std::string outputDir);
 
     const std::vector<std::set<unsigned int>> &getPatches() {
