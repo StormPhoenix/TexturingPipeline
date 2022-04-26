@@ -489,7 +489,6 @@ namespace MvsTexturing {
                     split_bigger_patch(patch, tmp_patches);
                 }
 
-                LOG_DEBUG(" - add all split patches ... ");
                 for (int i = tmp_patches.size() - 1; i >= 0; i--) {
                     TexturePatch::Ptr patch = tmp_patches[i];
                     final_texture_patches->push_back(patch);
@@ -502,7 +501,6 @@ namespace MvsTexturing {
                 std::vector<math::Vec3f> patch_adjust_values(texture_patch->get_faces().size() * 3, math::Vec3f(0.0f));
                 texture_patch->adjust_colors(patch_adjust_values);
             }
-
             return true;
         }
 

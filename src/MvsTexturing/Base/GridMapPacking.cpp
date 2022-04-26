@@ -8,7 +8,7 @@ namespace MvsTexturing {
     namespace Base {
         GridPatch::GridPatch(unsigned int width, unsigned int height, unsigned int grid_size) :
                 _grid_size(grid_size) {
-            // low-bound
+            // upper-bound
             _grid_width = (unsigned int) (std::ceil(float(width) / grid_size));
             _grid_height = (unsigned int) (std::ceil(float(height) / grid_size));
             _map = mve::IntImage::create(_grid_width, _grid_height, 1);
@@ -33,9 +33,14 @@ namespace MvsTexturing {
 
         GridMap::GridMap(unsigned int width, unsigned int height, unsigned int grid_size) :
                 _total_width(width), _total_height(height), _grid_size(grid_size) {
-            // low-bound
-            _grid_width = std::max(_total_width / _grid_size, std::size_t(1));
-            _grid_height = std::max(_total_height / _grid_size, std::size_t(1));
+
+            // upper-bound
+            _grid_width = (std::size_t) (std::ceil(float(_total_width) / _grid_size));
+            _grid_height = (std::size_t) (std::ceil(float(_total_height) / _grid_size));
+
+            _grid_width = std::max(_grid_width, std::size_t(1));
+            _grid_height = std::max(_grid_height, std::size_t(1));
+
             _map = mve::IntImage::create(_grid_width, _grid_height, 1);
             _map->fill(0);
         }
@@ -66,6 +71,7 @@ namespace MvsTexturing {
         }
 
         bool GridMap::insert(const GridPatch &patch, std::size_t &min_x, std::size_t &min_y) {
+            // TODO 这种比较大小的位置，不要使用 unsigned
             for (std::size_t y = 0; y <= (_grid_height - patch.grid_height()); y++) {
                 for (std::size_t x = 0; x <= (_grid_width - patch.grid_width());) {
                     std::size_t offset_in_x = compare_in_row_direction((*this), patch, y, x);

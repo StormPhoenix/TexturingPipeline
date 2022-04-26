@@ -64,7 +64,7 @@ namespace MvsTexturing {
 
             std::map<std::size_t, std::set<std::size_t> > tmp;
 
-            for (std::size_t const face_id : hole) {
+            for (std::size_t const face_id: hole) {
                 std::size_t const v0 = mesh_faces[face_id * 3 + 0];
                 std::size_t const v1 = mesh_faces[face_id * 3 + 1];
                 std::size_t const v2 = mesh_faces[face_id * 3 + 2];
@@ -173,7 +173,7 @@ namespace MvsTexturing {
             while (prev == seed || curr != seed) {
                 std::size_t next = std::numeric_limits<std::size_t>::max();
                 std::vector<std::size_t> const &adj_verts = adj_verts_via_border[g2l[curr]];
-                for (std::size_t adj_vert : adj_verts) {
+                for (std::size_t adj_vert: adj_verts) {
                     assert(is_border[g2l[adj_vert]]);
                     if (adj_vert != prev && adj_vert != curr) {
                         next = adj_vert;
@@ -212,8 +212,8 @@ namespace MvsTexturing {
                  * mesh and boundary) there has to be at least one projection
                  * of each border vertex in a common texture patch. */
                 math::Vec2f vp0(NAN), vp1(NAN);
-                for (const Base::VertexProjectionInfo &info0 : vpi0) {
-                    for (const Base::VertexProjectionInfo &info1 : vpi1) {
+                for (const Base::VertexProjectionInfo &info0: vpi0) {
+                    for (const Base::VertexProjectionInfo &info1: vpi1) {
                         if (info0.texture_patch_id == info1.texture_patch_id) {
                             vp0 = info0.projection;
                             vp1 = info1.projection;
@@ -263,7 +263,7 @@ namespace MvsTexturing {
                     std::map<std::size_t, float> weights;
 
                     std::vector<std::size_t> const &adj_faces = mesh_info[vertex_id].faces;
-                    for (std::size_t adj_face : adj_faces) {
+                    for (std::size_t adj_face: adj_faces) {
                         std::size_t v0 = mesh_faces[adj_face * 3 + 0];
                         std::size_t v1 = mesh_faces[adj_face * 3 + 1];
                         std::size_t v2 = mesh_faces[adj_face * 3 + 2];
@@ -336,7 +336,7 @@ namespace MvsTexturing {
 
             std::vector<math::Vec2f> texcoords;
             texcoords.reserve(hole.size());
-            for (std::size_t const face_id : hole) {
+            for (std::size_t const face_id: hole) {
                 for (std::size_t j = 0; j < 3; ++j) {
                     std::size_t const vertex_id = mesh_faces[face_id * 3 + j];
                     math::Vec2f const &projection = projections[g2l[vertex_id]];
@@ -358,7 +358,7 @@ namespace MvsTexturing {
                 std::vector<std::size_t> const &adj_faces = mesh_info[vertex_id].faces;
                 std::vector<std::size_t> faces;
                 faces.reserve(adj_faces.size());
-                for (std::size_t adj_face : adj_faces) {
+                for (std::size_t adj_face: adj_faces) {
                     if (graph.get_label(adj_face) == 0) {
                         faces.push_back(adj_face);
                     }
@@ -383,7 +383,7 @@ namespace MvsTexturing {
                 std::map<std::size_t, Base::VertexProjectionInfo> info_map;
                 std::map<std::size_t, Base::VertexProjectionInfo>::iterator it;
 
-                for (const Base::VertexProjectionInfo &info : infos) {
+                for (const Base::VertexProjectionInfo &info: infos) {
                     std::size_t texture_patch_id = info.texture_patch_id;
                     if ((it = info_map.find(texture_patch_id)) == info_map.end()) {
                         info_map[texture_patch_id] = info;
@@ -651,7 +651,7 @@ namespace MvsTexturing {
 //                unsigned int padding = size >> 7;
                 unsigned int padding = Base::TextureAtlas::kTextureAtlasPadding;
 
-                for (Base::TexturePatch::ConstPtr texture_patch : texture_patches) {
+                for (Base::TexturePatch::ConstPtr texture_patch: texture_patches) {
                     unsigned int width = texture_patch->get_width() + 2 * padding;
                     unsigned int height = texture_patch->get_height() + 2 * padding;
 

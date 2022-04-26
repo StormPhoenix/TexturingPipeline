@@ -266,7 +266,6 @@ Base::TexturePatch::Ptr generateTexturePatch(TextureRemoval &removal, unsigned i
     std::map<std::string, mve::ByteImage::Ptr> &materialImage = removal.getMaterialImage();
     const std::vector<std::string> &faceMaterials = removal.getFaceMaterials();
 
-
     // check material
     const std::set<unsigned int> &patch = removal.getPatches()[index];
     std::string materialID = removal.getFaceMaterials()[(*patch.begin())];
@@ -324,17 +323,6 @@ Base::TexturePatch::Ptr generateTexturePatch(TextureRemoval &removal, unsigned i
     final->adjust_colors(patch_adjust_values);
 
     return final;
-    // TODO check MaskImage
-    // 参考 AtlasMapper.cpp 648 ~ 657 行
-}
-
-void TextureRemoval::testSavePatchExample(unsigned int index) {
-    readMaterials();
-    Base::TexturePatch::Ptr patch = generateTexturePatch(*this, index);
-    mve::image::save_png_file(mve::image::float_to_byte_image(patch->get_image()), "./0.png");
-
-    // TODO check MaskImage
-    // 参考 AtlasMapper.cpp 648 ~ 657 行
 }
 
 void TextureRemoval::removeRedundantTextures(std::string outputDir) {

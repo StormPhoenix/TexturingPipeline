@@ -37,7 +37,6 @@ int main(int argc, char **argv) {
         return 0;
     }
 
-//    removal.testSavePatchExample(0);
     removal.removeRedundantTextures(output_prefix);
 
     LOG_INFO("RedundantTextureRemoval - DONE");
