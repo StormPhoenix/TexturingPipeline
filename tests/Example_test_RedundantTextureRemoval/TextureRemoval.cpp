@@ -4,6 +4,7 @@
 
 #include "TextureRemoval.h"
 
+#include <mve/image_io.h>
 #include <map>
 #include <set>
 #include <IO/IO.h>
@@ -49,7 +50,7 @@ struct Edge {
     }
 };
 
-#define TEXTURE_BORDER 1
+#define TEXTURE_BORDER 2
 
 
 using MeshPtr = mve::TriangleMesh::Ptr;
@@ -112,16 +113,18 @@ MeshPtr eigenMesh_to_mveMesh(const TextureRemoval::AttributeMatrix &V,
     return eigenMesh_to_mveMesh(V, F, FC);
 }
 
-void computeAdjacency(const TextureRemoval::IndexMatrix &indices, TextureRemoval::Adjacency &adjacency) {
+void TextureRemoval::computeAdjacency(const TextureRemoval::IndexMatrix &indices, TextureRemoval::Adjacency &adjacency,
+                      bool checkMaterialID) {
     std::map<Edge, std::vector<unsigned int>> edgeFaceMap;
     unsigned int nFaces = indices.rows();
     for (unsigned int faceID = 0; faceID < nFaces; faceID++) {
         for (int j = 0; j < 3; j++) {
-
             int firstVertexID = indices(faceID, j);
             int secondVertexID = indices(faceID, (j + 1) % 3);
             if (firstVertexID == secondVertexID) {
-                LOG_WARN("Adjacency Computation Warning - Two same vertex ID");
+                LOG_WARN(
+                        "Adjacency Computation Warning - Two same vertex ID, indices: {}, firstIndicesID: {}, secondIndicesID: {}",
+                        faceID, firstVertexID, secondVertexID);
                 continue;
             }
 
@@ -137,13 +140,24 @@ void computeAdjacency(const TextureRemoval::IndexMatrix &indices, TextureRemoval
         adjacency.push_back(std::set<int>());
     }
 
-    for (std::map<Edge, std::vector<unsigned int>>::iterator it = edgeFaceMap.begin(); it != edgeFaceMap.end(); it++) {
+    for (std::map<Edge, std::vector<unsigned int >>::iterator it = edgeFaceMap.begin(); it != edgeFaceMap.end();
+         it++) {
         std::vector<unsigned int> &faceIDs = it->second;
         if (faceIDs.size() > 2) {
             LOG_WARN("Adjacency Computation Error - More than 3 triangles attach to one edge: {}", faceIDs.size());
         } else if (faceIDs.size() == 2) {
-            adjacency[faceIDs[0]].insert(faceIDs[1]);
-            adjacency[faceIDs[1]].insert(faceIDs[0]);
+            if (checkMaterialID) {
+                std::string firstMaterialName = faceMaterials[faceIDs[0]];
+                std::string secondMaterialName = faceMaterials[faceIDs[1]];
+
+                if (firstMaterialName == secondMaterialName) {
+                    adjacency[faceIDs[0]].insert(faceIDs[1]);
+                    adjacency[faceIDs[1]].insert(faceIDs[0]);
+                }
+            } else {
+                adjacency[faceIDs[0]].insert(faceIDs[1]);
+                adjacency[faceIDs[1]].insert(faceIDs[0]);
+            }
         }
     }
 }
@@ -195,8 +209,10 @@ bool TextureRemoval::loadObjMesh(std::string file) {
             meshNormalIDs, meshTexcoordIDs, faceMaterials, materialNameMap);
 
     if (ret) {
-        computeAdjacency(meshFaces, faceAdjacency);
-        computeAdjacency(meshTexcoordIDs, texAdjacency);
+        LOG_INFO("Compute face adjacency. ");
+        computeAdjacency(meshFaces, faceAdjacency, false);
+        LOG_INFO("Compute texture adjacency. ");
+        computeAdjacency(meshTexcoordIDs, texAdjacency, true);
     }
     return ret;
 }
@@ -229,7 +245,7 @@ double getCoord(int faceID, int vertexID, int axis, const TextureRemoval::IndexM
 }
 
 void updateCoordRange(int axis, int faceID, const TextureRemoval::IndexMatrix &meshTexcoordIDs,
-                      const TextureRemoval::AttributeMatrix &meshTexcoords, double &minCoord, double &maxCoord) {
+                      const TextureRemoval::AttributeMatrix &meshTexcoords, float &minCoord, float &maxCoord) {
     for (int i = 0; i < 3; i++) {
         double coord = getCoord(faceID, i, axis, meshTexcoordIDs, meshTexcoords);
         if (minCoord > coord) {
@@ -270,22 +286,28 @@ Base::TexturePatch::Ptr generateTexturePatch(TextureRemoval &removal, unsigned i
     const std::set<unsigned int> &patch = removal.getPatches()[index];
     std::string materialID = removal.getFaceMaterials()[(*patch.begin())];
     mve::ByteImage::Ptr image = materialImage[materialID];
-    int materialWidth = image->width();
-    int materialHeight = image->height();
+    double materialWidth = image->width();
+    double materialHeight = image->height();
 
-    double minXCoord, maxXCoord;
-    double minYCoord, maxYCoord;
+    float minXCoord, maxXCoord;
+    float minYCoord, maxYCoord;
 
     minXCoord = minYCoord = 1.0f;
     maxXCoord = maxYCoord = 0.0f;
 
+    {
+        minXCoord = maxXCoord = getCoord((*patch.begin()), 0, 0, meshTexcoordIDs, meshTexcoords);
+        minYCoord = maxYCoord = getCoord((*patch.begin()), 0, 1, meshTexcoordIDs, meshTexcoords);
+    }
 
-    updateCoordRange(0, (*patch.begin()), meshTexcoordIDs, meshTexcoords, minXCoord, maxXCoord);
-    updateCoordRange(1, (*patch.begin()), meshTexcoordIDs, meshTexcoords, minYCoord, maxYCoord);
+//    updateCoordRange(0, (*patch.begin()), meshTexcoordIDs, meshTexcoords, minXCoord, maxXCoord);
+//    updateCoordRange(1, (*patch.begin()), meshTexcoordIDs, meshTexcoords, minYCoord, maxYCoord);
 
     for (unsigned int faceID: patch) {
         if (materialID != faceMaterials[faceID]) {
-            LOG_ERROR("generateTexturePatch ERROR - Faces in the patch have different materials");
+            LOG_ERROR(
+                    "generateTexturePatch ERROR - Faces in the patch have different materials, materialID: {}, faceMaterials: {}",
+                    materialID, faceMaterials[faceID]);
             return nullptr;
         }
         facesOfPatch.push_back(faceID);
@@ -300,22 +322,54 @@ Base::TexturePatch::Ptr generateTexturePatch(TextureRemoval &removal, unsigned i
         }
     }
 
-    int subWidth = (int(maxXCoord * materialWidth) - int(minXCoord * materialWidth)) + 1;
-    int subHeight = (int(maxYCoord * materialHeight) - int(minYCoord * materialHeight)) + 1;
-    int minX = minXCoord * image->width();
-    int minY = minYCoord * image->height();
+//    int subWidth = int(maxXCoord * materialWidth - minXCoord * materialWidth) + 1;
+//    int subHeight = int(maxYCoord * materialHeight - minYCoord * materialHeight) + 1;
 
-    subWidth += 2 * TEXTURE_BORDER;
-    subHeight += 2 * TEXTURE_BORDER;
-    minX -= TEXTURE_BORDER;
-    minY -= TEXTURE_BORDER;
+//    double minX = minXCoord * image->width();
+//    double minY = minYCoord * image->height();
+
+//    int subWidth = int((maxXCoord - minXCoord) * materialWidth);
+//    int subHeight = int((maxYCoord - minYCoord) * materialHeight);
+
+    const int Texture_Border = 1;
+    int subWidth, subHeight;
+    int minX, minY;
+    {
+        int min_x = std::floor(minXCoord * materialWidth) - Texture_Border;
+        int max_x = std::ceil(maxXCoord * materialWidth) + Texture_Border;
+
+        int min_y = std::floor(minYCoord * materialWidth) - Texture_Border;
+        int max_y = std::ceil(maxYCoord * materialWidth) + Texture_Border;
+
+        subWidth = (max_x - min_x) + 1;
+        subHeight = (max_y - min_y) + 1;
+
+        minX = min_x;
+        minY = min_y;
+    }
+
+//    int minX = minXCoord * image->width();
+//    int minY = minYCoord * image->height();
+
+//    subWidth += 2 * TEXTURE_BORDER;
+//    subHeight += 2 * TEXTURE_BORDER;
+//    minX -= TEXTURE_BORDER;
+//    minY -= TEXTURE_BORDER;
 
     math::Vec2f min(minX, minY);
     for (std::size_t i = 0; i < texcoordsOfPatch.size(); i++) {
         texcoordsOfPatch[i] = texcoordsOfPatch[i] - min;
     }
 
-    mve::ByteImage::Ptr subImage = mve::image::crop(image, subWidth, subHeight, minX, minY, *math::Vec3uc(255, 0, 255));
+    mve::ByteImage::Ptr subImage = mve::image::crop(image, subWidth, subHeight,
+                                                    minX, minY, *math::Vec3uc(255, 0, 0));
+
+//    mve::ByteImage::Ptr subImage = mve::image::crop(image, subWidth, subHeight, std::ceil(minX),
+//                                                    std::ceil(minY), *math::Vec3uc(255, 0, 0));
+
+    // TODO debug save
+    mve::image::save_png_file(subImage, "./debug0.png");
+
     imageOfPatch = mve::image::byte_to_float_image(subImage);
 
     Base::TexturePatch::Ptr final = Base::TexturePatch::create(0, facesOfPatch, texcoordsOfPatch, imageOfPatch);

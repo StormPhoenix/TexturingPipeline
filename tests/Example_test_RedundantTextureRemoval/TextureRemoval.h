@@ -46,6 +46,10 @@ public:
     }
 
 private:
+    void computeAdjacency(const TextureRemoval::IndexMatrix &indices, TextureRemoval::Adjacency &adjacency,
+                          bool checkMaterialID);
+
+private:
     void readMaterials();
 
     void searchTexSpacePatches();
