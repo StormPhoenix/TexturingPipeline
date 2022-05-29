@@ -14,6 +14,9 @@ namespace MvsTexturing {
 
         bool detect_photometric_outliers(FaceProjectionInfoArray &infos, const Parameter &param,
                                          std::set<std::size_t> *outliers = nullptr);
+
+        bool detect_outliers(FaceProjectionInfoArray &infos, const Parameter &param,
+                             std::set<std::size_t> *outliers = nullptr);
     }
 }
 

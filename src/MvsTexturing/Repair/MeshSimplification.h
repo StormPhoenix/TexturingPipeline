@@ -20,7 +20,7 @@ namespace MvsTexturing {
         using Vec3 = Eigen::Matrix<Scalar, 1, 3>;
         using Vec2 = Eigen::Matrix<Scalar, 1, 2>;
         using Vec4 = Eigen::Matrix<Scalar, 1, 4>;
-        using FaceGroup = MvsTexturing::Base::FaceGroup;
+        using FaceGroup = MvsTexturing::Base::PlanarAreaFaceGroup;
 
         class Mesh {
         public:

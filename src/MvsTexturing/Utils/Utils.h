@@ -47,7 +47,7 @@ namespace MvsTexturing {
                                  Eigen::Matrix<T, N, N> const &covariance_inv) {
 
             Eigen::Matrix<T, 1, N> mean_removed = X - mu;
-            return std::exp(T(-0.5) * mean_removed * covariance_inv * mean_removed.adjoint());
+            return std::exp(static_cast<double>(T(-0.5) * mean_removed * covariance_inv * mean_removed.adjoint()));
         }
 
         /** Return the number suffix for n, e.g. 3 -> "rd". */

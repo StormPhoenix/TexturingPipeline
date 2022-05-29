@@ -71,7 +71,7 @@ namespace MvsTexturing {
         }
 
         bool GridMap::insert(const GridPatch &patch, std::size_t &min_x, std::size_t &min_y) {
-            // TODO 这种比较大小的位置，不要使用 unsigned
+            // TODO do not use unsigned int
             for (std::size_t y = 0; y <= (_grid_height - patch.grid_height()); y++) {
                 for (std::size_t x = 0; x <= (_grid_width - patch.grid_width());) {
                     std::size_t offset_in_x = compare_in_row_direction((*this), patch, y, x);

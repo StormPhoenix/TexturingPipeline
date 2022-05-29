@@ -558,9 +558,6 @@ namespace MvsTexturing {
                             // ：投影坐标是多少
                             // ：属于哪个 face（face_id）
                             Base::VertexProjectionInfo info = {texture_patch_id, projection, {face_id}};
-
-                            // 考虑到不同的 face 会共用同一个 vertex，这个信息要保存下来
-                            // TODO 考虑到融合失败的情况，很有可能是看起来共面的 face 没有共用同一个定点
 #pragma omp critical
                             vertex_projection_infos->at(vertex_id).push_back(info);
                         }
@@ -570,8 +567,7 @@ namespace MvsTexturing {
 
             merge_vertex_projection_infos(vertex_projection_infos);
 
-            // 补洞？有一些 faces 是看不见的，这里用来补洞
-            // TODO 后续可能要在这里做一些操作
+            // Fill holes
             {
                 std::vector<std::size_t> unseen_faces;
                 std::vector<std::vector<std::size_t> > subgraphs;

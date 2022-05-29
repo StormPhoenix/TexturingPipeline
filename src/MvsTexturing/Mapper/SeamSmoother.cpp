@@ -536,8 +536,7 @@ namespace MvsTexturing {
             /* Sample edge colors. */
             for (std::size_t i = 0; i < edge_projection_infos.size(); ++i) {
                 /* Determine sampling (ensure at least two samples per edge). */
-                // TODO 临时修改
-//        float max_length = 1;
+//                float max_length = 1;
                 float max_length = 4;
                 for (Base::EdgeProjectionInfo const &edge_projection_info : edge_projection_infos[i]) {
                     float length = (edge_projection_info.p1 - edge_projection_info.p2).norm();

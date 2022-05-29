@@ -23,6 +23,8 @@ namespace MvsTexturing {
             void prepare_mesh(mve::MeshInfo *mesh_info, MeshPtr mesh);
 
             void build_adjacency_graph(MeshConstPtr mesh, const mve::MeshInfo &mesh_info, Base::LabelGraph *graph);
+
+            void build_adjacency_graph(mve::SubMesh::Ptr mesh, const mve::MeshInfo &mesh_info, Base::LabelGraph *graph);
         }
     }
 }

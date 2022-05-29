@@ -12,6 +12,7 @@
 
 #include <vector>
 #include <memory>
+#include <map>
 
 #include "math/vector.h"
 #include "mve/defines.h"
@@ -23,61 +24,66 @@ MVE_NAMESPACE_BEGIN
  * and vertex associated data, namely colors, confidences and the generic
  * attribute values.
  */
-class MeshBase
-{
-public:
-    typedef std::shared_ptr<MeshBase> Ptr;
-    typedef std::shared_ptr<MeshBase const> ConstPtr;
+    class MeshBase {
+    public:
+        typedef std::shared_ptr<MeshBase> Ptr;
+        typedef std::shared_ptr<MeshBase const> ConstPtr;
 
-    typedef unsigned int VertexID;
-    typedef std::vector<math::Vec3f> VertexList;
-    typedef std::vector<math::Vec4f> ColorList;
-    typedef std::vector<float> ConfidenceList;
-    typedef std::vector<float> ValueList;
+        typedef unsigned int VertexID;
+        typedef std::vector<math::Vec3f> VertexList;
+        typedef std::vector<math::Vec4f> ColorList;
+        typedef std::vector<float> ConfidenceList;
+        typedef std::vector<float> ValueList;
 
-public:
-    virtual ~MeshBase (void);
+    public:
+        virtual ~MeshBase(void);
 
-    /** Returns the mesh vertices. */
-    VertexList const& get_vertices (void) const;
-    /** Returns the mesh vertices. */
-    VertexList& get_vertices (void);
+        /** Returns the mesh vertices. */
+        VertexList const &get_vertices(void) const;
 
-    /** Returns the vertex colors. */
-    ColorList const& get_vertex_colors (void) const;
-    /** Returns the vertex colors. */
-    ColorList& get_vertex_colors (void);
+        /** Returns the mesh vertices. */
+        VertexList &get_vertices(void);
 
-    /** Returns the vertex confidences. */
-    ConfidenceList const& get_vertex_confidences (void) const;
-    /** Returns the vertex confidences. */
-    ConfidenceList& get_vertex_confidences (void);
+        /** Returns the vertex colors. */
+        ColorList const &get_vertex_colors(void) const;
 
-    /** Returns the vertex values (generic attribute). */
-    ValueList const& get_vertex_values (void) const;
-    /** Returns the vertex values (generic attribute). */
-    ValueList& get_vertex_values (void);
+        /** Returns the vertex colors. */
+        ColorList &get_vertex_colors(void);
 
-    /** Returns true if colors and vertex amount are equal. */
-    bool has_vertex_colors (void) const;
-    /** Returns true if confidence amount and vertex amount are equal. */
-    bool has_vertex_confidences (void) const;
-    /** Returns true if value amount and vertex amount are equal. */
-    bool has_vertex_values (void) const;
+        /** Returns the vertex confidences. */
+        ConfidenceList const &get_vertex_confidences(void) const;
 
-    /** Clears all mesh data. */
-    virtual void clear (void);
+        /** Returns the vertex confidences. */
+        ConfidenceList &get_vertex_confidences(void);
 
-protected:
-    MeshBase (void);
+        /** Returns the vertex values (generic attribute). */
+        ValueList const &get_vertex_values(void) const;
 
-protected:
-    VertexList vertices;
-    ColorList vertex_colors;
-    ColorList face_colors;
-    ConfidenceList vertex_confidences;
-    ValueList vertex_values;
-};
+        /** Returns the vertex values (generic attribute). */
+        ValueList &get_vertex_values(void);
+
+        /** Returns true if colors and vertex amount are equal. */
+        bool has_vertex_colors(void) const;
+
+        /** Returns true if confidence amount and vertex amount are equal. */
+        bool has_vertex_confidences(void) const;
+
+        /** Returns true if value amount and vertex amount are equal. */
+        bool has_vertex_values(void) const;
+
+        /** Clears all mesh data. */
+        virtual void clear(void);
+
+    protected:
+        MeshBase(void);
+
+    protected:
+        VertexList vertices;
+        ColorList vertex_colors;
+        ColorList face_colors;
+        ConfidenceList vertex_confidences;
+        ValueList vertex_values;
+    };
 
 /* ---------------------------------------------------------------- */
 
@@ -87,328 +93,362 @@ protected:
  * per-vertex normals, colors, and confidences, a list
  * of vertex indices for the faces and per-face normals.
  */
-class TriangleMesh : public MeshBase
-{
-public:
-    typedef std::shared_ptr<TriangleMesh> Ptr;
-    typedef std::shared_ptr<TriangleMesh const> ConstPtr;
+    class TriangleMesh : public MeshBase {
+    public:
+        typedef std::shared_ptr<TriangleMesh> Ptr;
+        typedef std::shared_ptr<TriangleMesh const> ConstPtr;
 
-    typedef std::vector<math::Vec3f> NormalList;
-    typedef std::vector<math::Vec2f> TexCoordList;
-    typedef std::vector<VertexID> FaceList;
+        typedef std::vector<math::Vec3f> NormalList;
+        typedef std::vector<math::Vec2f> TexCoordList;
+        typedef std::vector<VertexID> FaceList;
 
-    typedef std::vector<bool> DeleteList;
+        typedef std::vector<bool> DeleteList;
 
-public:
-    virtual ~TriangleMesh (void);
-    static Ptr create (void);
-    static Ptr create (TriangleMesh::ConstPtr other);
+    public:
+        virtual ~TriangleMesh(void);
 
-    Ptr duplicate (void) const;
+        static Ptr create(void);
 
-    /** Returns the vertex normals. */
-    NormalList const& get_vertex_normals (void) const;
-    /** Returns the vertex normals. */
-    NormalList& get_vertex_normals (void);
+        static Ptr create(TriangleMesh::ConstPtr other);
 
-    /** Returns the vectex texture coordinates. */
-    TexCoordList const& get_vertex_texcoords (void) const;
-    /** Returns the vectex texture coordinates. */
-    TexCoordList& get_vertex_texcoords (void);
+        Ptr duplicate(void) const;
 
-    /** Returns the triangle indices. */
-    FaceList const& get_faces (void) const;
-    /** Returns the triangle indices. */
-    FaceList& get_faces (void);
+        /** Returns the vertex normals. */
+        NormalList const &get_vertex_normals(void) const;
 
-    /** Returns the face normals. */
-    NormalList const& get_face_normals (void) const;
-    /** Returns the face normals. */
-    NormalList& get_face_normals (void);
+        /** Returns the vertex normals. */
+        NormalList &get_vertex_normals(void);
 
-    /** Returns the face colors. */
-    ColorList const& get_face_colors (void) const;
-    /** Returns the face colors. */
-    ColorList& get_face_colors (void);
+        /** Returns the vectex texture coordinates. */
+        TexCoordList const &get_vertex_texcoords(void) const;
 
-    /** Returns true if vertex normal amount equals vertex amount. */
-    bool has_vertex_normals (void) const;
-    /** Returns true if texture coordinate amount equals vertex amount. */
-    bool has_vertex_texcoords (void) const;
-    /** Returns true if face normal amount equals face amount. */
-    bool has_face_normals (void) const;
-    /** Returns true if face color amount equals face amount. */
-    bool has_face_colors (void) const;
+        /** Returns the vectex texture coordinates. */
+        TexCoordList &get_vertex_texcoords(void);
 
-    /** Recalculates normals if normal amount is inconsistent. */
-    void ensure_normals (bool face = true, bool vertex = true);
-    /** Recalculates face and/or vertex normals. */
-    void recalc_normals (bool face = true, bool vertex = true);
+        /** Returns the triangle indices. */
+        FaceList const &get_faces(void) const;
 
-    /** Clears all mesh data. */
-    virtual void clear (void);
-    /** Clears mesh normal data. */
-    void clear_normals (void);
+        /** Returns the triangle indices. */
+        FaceList &get_faces(void);
 
-    /**
-     * Deletes marked vertices and related attributes if available.
-     * Note that this does not change face data.
-     */
-    void delete_vertices (DeleteList const& dlist);
+        /** Returns the face normals. */
+        NormalList const &get_face_normals(void) const;
 
-    /*
-     * Deletes marked vertices and related attributes, deletes faces
-     * referencing marked vertices and fixes face indices.
-     */
-    void delete_vertices_fix_faces (DeleteList const& dlist);
+        /** Returns the face normals. */
+        NormalList &get_face_normals(void);
 
-    /**
-     * Deletes all invalid triangles, i.e. the triangles where all three
-     * vertices have the same vertex ID.
-     */
-    void delete_invalid_faces (void);
+        /** Returns the face colors. */
+        ColorList const &get_face_colors(void) const;
 
-    /** Returns the memory consumption in bytes. */
-    std::size_t get_byte_size (void) const;
+        /** Returns the face colors. */
+        ColorList &get_face_colors(void);
 
-protected:
-    NormalList vertex_normals;
-    TexCoordList vertex_texcoords;
+        /** Returns true if vertex normal amount equals vertex amount. */
+        bool has_vertex_normals(void) const;
 
-    FaceList faces;
-    NormalList face_normals;
-    ColorList face_colors;
+        /** Returns true if texture coordinate amount equals vertex amount. */
+        bool has_vertex_texcoords(void) const;
 
-protected:
-    /** Use the create() methods to instantiate a mesh. */
-    TriangleMesh (void);
-};
+        /** Returns true if face normal amount equals face amount. */
+        bool has_face_normals(void) const;
 
-/* ---------------------------------------------------------------- */
+        /** Returns true if face color amount equals face amount. */
+        bool has_face_colors(void) const;
 
-inline
-MeshBase::MeshBase (void)
-{
-}
+        /** Recalculates normals if normal amount is inconsistent. */
+        void ensure_normals(bool face = true, bool vertex = true);
 
-inline
-MeshBase::~MeshBase (void)
-{
-}
+        /** Recalculates face and/or vertex normals. */
+        void recalc_normals(bool face = true, bool vertex = true);
 
-inline MeshBase::VertexList const&
-MeshBase::get_vertices (void) const
-{
-    return this->vertices;
-}
+        /** Clears all mesh data. */
+        virtual void clear(void);
 
-inline MeshBase::VertexList&
-MeshBase::get_vertices (void)
-{
-    return this->vertices;
-}
+        /** Clears mesh normal data. */
+        void clear_normals(void);
 
-inline MeshBase::ColorList const&
-MeshBase::get_vertex_colors (void) const
-{
-    return this->vertex_colors;
-}
+        /**
+         * Deletes marked vertices and related attributes if available.
+         * Note that this does not change face data.
+         */
+        void delete_vertices(DeleteList const &dlist);
 
-inline MeshBase::ColorList&
-MeshBase::get_vertex_colors (void)
-{
-    return this->vertex_colors;
-}
+        /*
+         * Deletes marked vertices and related attributes, deletes faces
+         * referencing marked vertices and fixes face indices.
+         */
+        void delete_vertices_fix_faces(DeleteList const &dlist);
 
-inline MeshBase::ConfidenceList const&
-MeshBase::get_vertex_confidences (void) const
-{
-    return this->vertex_confidences;
-}
+        /**
+         * Deletes all invalid triangles, i.e. the triangles where all three
+         * vertices have the same vertex ID.
+         */
+        void delete_invalid_faces(void);
 
-inline MeshBase::ConfidenceList&
-MeshBase::get_vertex_confidences (void)
-{
-    return this->vertex_confidences;
-}
+        /** Returns the memory consumption in bytes. */
+        std::size_t get_byte_size(void) const;
 
-inline MeshBase::ValueList const&
-MeshBase::get_vertex_values (void) const
-{
-    return this->vertex_values;
-}
+    protected:
+        NormalList vertex_normals;
+        TexCoordList vertex_texcoords;
 
-inline MeshBase::ValueList&
-MeshBase::get_vertex_values (void)
-{
-    return this->vertex_values;
-}
+        FaceList faces;
+        NormalList face_normals;
+        ColorList face_colors;
 
-inline void
-MeshBase::clear (void)
-{
-    this->vertices.clear();
-    this->vertex_colors.clear();
-    this->vertex_confidences.clear();
-    this->vertex_values.clear();
-}
+    protected:
+        /** Use the create() methods to instantiate a mesh. */
+        TriangleMesh(void);
+    };
 
-inline bool
-MeshBase::has_vertex_colors (void) const
-{
-    return !this->vertices.empty()
-        && this->vertex_colors.size() == this->vertices.size();
-}
+    class SubMesh {
+    public:
+        typedef std::shared_ptr<SubMesh> Ptr;
+    public:
+        virtual ~SubMesh() {}
 
-inline bool
-MeshBase::has_vertex_confidences (void) const
-{
-    return !this->vertices.empty()
-        && this->vertex_confidences.size() == this->vertices.size();
-}
+        static Ptr create(TriangleMesh::ConstPtr baseMesh, std::vector<std::size_t> &subFaceIDs);
 
-inline bool
-MeshBase::has_vertex_values (void) const
-{
-    return !this->vertices.empty()
-        && this->vertex_values.size() == this->vertices.size();
-}
+        std::size_t getFaceCount() {
+            return _subFaceIDs.size();
+        }
+
+        const std::vector<std::size_t> &getFaceIDs() {
+            return _subFaceIDs;
+        }
+
+        const std::vector<unsigned int> &getFaces() {
+            return _baseMesh->get_faces();
+        }
+
+        const std::vector<math::Vec3f> &getVertices() {
+            return _baseMesh->get_vertices();
+        }
+
+        const std::vector<math::Vec3f> &getFaceNormals() {
+            return _baseMesh->get_face_normals();
+        }
+
+        bool containsFace(std::size_t faceID) {
+            return _subFaceMap.find(faceID) != _subFaceMap.end();
+        }
+
+        int subFaceMapped(std::size_t faceID) {
+            if (!containsFace(faceID)) {
+                return -1;
+            }
+            return _subFaceMap[faceID];
+        }
+
+    protected:
+        SubMesh(TriangleMesh::ConstPtr baseMesh, std::vector<std::size_t> &subFaceIDs) :
+                _baseMesh(baseMesh) {
+            for (std::size_t i = 0; i < subFaceIDs.size(); i++) {
+                _subFaceIDs.push_back(subFaceIDs[i]);
+                _subFaceMap[subFaceIDs[i]] = i;
+            }
+        }
+
+    protected:
+        TriangleMesh::ConstPtr _baseMesh = nullptr;
+        std::vector<std::size_t> _subFaceIDs;
+        std::map<std::size_t, std::size_t> _subFaceMap;
+    };
+
+    inline SubMesh::Ptr SubMesh::create(TriangleMesh::ConstPtr baseMesh, std::vector<std::size_t> &subFaceIDs) {
+        return Ptr(new SubMesh(baseMesh, subFaceIDs));
+    }
 
 /* ---------------------------------------------------------------- */
 
-inline TriangleMesh::Ptr
-TriangleMesh::duplicate (void) const
-{
-    return Ptr(new TriangleMesh(*this));
-}
+    inline
+    MeshBase::MeshBase(void) {
+    }
 
-inline
-TriangleMesh::TriangleMesh (void)
-{
-}
+    inline
+    MeshBase::~MeshBase(void) {
+    }
 
-inline
-TriangleMesh::~TriangleMesh (void)
-{
-}
+    inline MeshBase::VertexList const &
+    MeshBase::get_vertices(void) const {
+        return this->vertices;
+    }
 
-inline TriangleMesh::Ptr
-TriangleMesh::create (void)
-{
-    return Ptr(new TriangleMesh);
-}
+    inline MeshBase::VertexList &
+    MeshBase::get_vertices(void) {
+        return this->vertices;
+    }
 
-inline TriangleMesh::Ptr
-TriangleMesh::create (TriangleMesh::ConstPtr other)
-{
-    return Ptr(new TriangleMesh(*other));
-}
+    inline MeshBase::ColorList const &
+    MeshBase::get_vertex_colors(void) const {
+        return this->vertex_colors;
+    }
 
-inline TriangleMesh::NormalList const&
-TriangleMesh::get_vertex_normals (void) const
-{
-    return this->vertex_normals;
-}
+    inline MeshBase::ColorList &
+    MeshBase::get_vertex_colors(void) {
+        return this->vertex_colors;
+    }
 
-inline TriangleMesh::NormalList&
-TriangleMesh::get_vertex_normals (void)
-{
-    return this->vertex_normals;
-}
+    inline MeshBase::ConfidenceList const &
+    MeshBase::get_vertex_confidences(void) const {
+        return this->vertex_confidences;
+    }
 
-inline TriangleMesh::TexCoordList const&
-TriangleMesh::get_vertex_texcoords (void) const
-{
-    return this->vertex_texcoords;
-}
+    inline MeshBase::ConfidenceList &
+    MeshBase::get_vertex_confidences(void) {
+        return this->vertex_confidences;
+    }
 
-inline TriangleMesh::TexCoordList&
-TriangleMesh::get_vertex_texcoords (void)
-{
-    return this->vertex_texcoords;
-}
+    inline MeshBase::ValueList const &
+    MeshBase::get_vertex_values(void) const {
+        return this->vertex_values;
+    }
 
-inline TriangleMesh::FaceList const&
-TriangleMesh::get_faces (void) const
-{
-    return this->faces;
-}
+    inline MeshBase::ValueList &
+    MeshBase::get_vertex_values(void) {
+        return this->vertex_values;
+    }
 
-inline TriangleMesh::FaceList&
-TriangleMesh::get_faces (void)
-{
-    return this->faces;
-}
+    inline void
+    MeshBase::clear(void) {
+        this->vertices.clear();
+        this->vertex_colors.clear();
+        this->vertex_confidences.clear();
+        this->vertex_values.clear();
+    }
 
-inline TriangleMesh::NormalList const&
-TriangleMesh::get_face_normals (void) const
-{
-    return this->face_normals;
-}
+    inline bool
+    MeshBase::has_vertex_colors(void) const {
+        return !this->vertices.empty()
+               && this->vertex_colors.size() == this->vertices.size();
+    }
 
-inline TriangleMesh::NormalList&
-TriangleMesh::get_face_normals (void)
-{
-    return this->face_normals;
-}
+    inline bool
+    MeshBase::has_vertex_confidences(void) const {
+        return !this->vertices.empty()
+               && this->vertex_confidences.size() == this->vertices.size();
+    }
 
-inline TriangleMesh::ColorList&
-TriangleMesh::get_face_colors (void)
-{
-    return this->face_colors;
-}
+    inline bool
+    MeshBase::has_vertex_values(void) const {
+        return !this->vertices.empty()
+               && this->vertex_values.size() == this->vertices.size();
+    }
 
-inline TriangleMesh::ColorList const&
-TriangleMesh::get_face_colors (void) const
-{
-    return this->face_colors;
-}
+/* ---------------------------------------------------------------- */
 
-inline void
-TriangleMesh::clear_normals (void)
-{
-    this->vertex_normals.clear();
-    this->face_normals.clear();
-}
+    inline TriangleMesh::Ptr
+    TriangleMesh::duplicate(void) const {
+        return Ptr(new TriangleMesh(*this));
+    }
 
-inline void
-TriangleMesh::clear (void)
-{
-    this->MeshBase::clear();
-    this->vertex_normals.clear();
-    this->vertex_texcoords.clear();
-    this->faces.clear();
-    this->face_normals.clear();
-    this->face_colors.clear();
-}
+    inline
+    TriangleMesh::TriangleMesh(void) {
+    }
 
-inline bool
-TriangleMesh::has_vertex_normals (void) const
-{
-    return !this->vertices.empty()
-        && this->vertex_normals.size() == this->vertices.size();
-}
+    inline
+    TriangleMesh::~TriangleMesh(void) {
+    }
 
-inline bool
-TriangleMesh::has_vertex_texcoords (void) const
-{
-    return !this->vertices.empty()
-        && this->vertex_texcoords.size() == this->vertices.size();
-}
+    inline TriangleMesh::Ptr
+    TriangleMesh::create(void) {
+        return Ptr(new TriangleMesh);
+    }
 
-inline bool
-TriangleMesh::has_face_normals (void) const
-{
-    return !this->faces.empty()
-        && this->faces.size() == this->face_normals.size() * 3;
-}
+    inline TriangleMesh::Ptr
+    TriangleMesh::create(TriangleMesh::ConstPtr other) {
+        return Ptr(new TriangleMesh(*other));
+    }
 
-inline bool
-TriangleMesh::has_face_colors (void) const
-{
-    return (!this->faces.empty())
-           && (this->faces.size() == (this->face_colors.size() * 3));
-}
+    inline TriangleMesh::NormalList const &
+    TriangleMesh::get_vertex_normals(void) const {
+        return this->vertex_normals;
+    }
+
+    inline TriangleMesh::NormalList &
+    TriangleMesh::get_vertex_normals(void) {
+        return this->vertex_normals;
+    }
+
+    inline TriangleMesh::TexCoordList const &
+    TriangleMesh::get_vertex_texcoords(void) const {
+        return this->vertex_texcoords;
+    }
+
+    inline TriangleMesh::TexCoordList &
+    TriangleMesh::get_vertex_texcoords(void) {
+        return this->vertex_texcoords;
+    }
+
+    inline TriangleMesh::FaceList const &
+    TriangleMesh::get_faces(void) const {
+        return this->faces;
+    }
+
+    inline TriangleMesh::FaceList &
+    TriangleMesh::get_faces(void) {
+        return this->faces;
+    }
+
+    inline TriangleMesh::NormalList const &
+    TriangleMesh::get_face_normals(void) const {
+        return this->face_normals;
+    }
+
+    inline TriangleMesh::NormalList &
+    TriangleMesh::get_face_normals(void) {
+        return this->face_normals;
+    }
+
+    inline TriangleMesh::ColorList &
+    TriangleMesh::get_face_colors(void) {
+        return this->face_colors;
+    }
+
+    inline TriangleMesh::ColorList const &
+    TriangleMesh::get_face_colors(void) const {
+        return this->face_colors;
+    }
+
+    inline void
+    TriangleMesh::clear_normals(void) {
+        this->vertex_normals.clear();
+        this->face_normals.clear();
+    }
+
+    inline void
+    TriangleMesh::clear(void) {
+        this->MeshBase::clear();
+        this->vertex_normals.clear();
+        this->vertex_texcoords.clear();
+        this->faces.clear();
+        this->face_normals.clear();
+        this->face_colors.clear();
+    }
+
+    inline bool
+    TriangleMesh::has_vertex_normals(void) const {
+        return !this->vertices.empty()
+               && this->vertex_normals.size() == this->vertices.size();
+    }
+
+    inline bool
+    TriangleMesh::has_vertex_texcoords(void) const {
+        return !this->vertices.empty()
+               && this->vertex_texcoords.size() == this->vertices.size();
+    }
+
+    inline bool
+    TriangleMesh::has_face_normals(void) const {
+        return !this->faces.empty()
+               && this->faces.size() == this->face_normals.size() * 3;
+    }
+
+    inline bool
+    TriangleMesh::has_face_colors(void) const {
+        return (!this->faces.empty())
+               && (this->faces.size() == (this->face_colors.size() * 3));
+    }
 
 MVE_NAMESPACE_END
 

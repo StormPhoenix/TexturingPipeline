@@ -220,7 +220,7 @@ namespace SEACAVE {
                 energy = ComputeEnergy();
                 diff = last_energy - energy;
 //                DEBUG_ULTIMATE("\t%2u. e: %g\td: %g\tt: %s", i, last_energy, diff, TD_TIMER_GET_FMT().c_str());
-                printf("\t%2u. e: %g\td: %g\n", i, last_energy, diff);
+//                printf("\t%2u. e: %g\td: %g\n", i, last_energy, diff);
                 if (++i > 100 || diff == EnergyType(0))
                     break;
 #if 1
@@ -240,10 +240,10 @@ namespace SEACAVE {
             }
             if (diff == EnergyType(0)) {
 //                DEBUG_ULTIMATE("Inference converged in %u iterations: %g energy (%s)", i, energy, TD_TIMER_GET_FMT().c_str());
-                printf("Inference converged in %u iterations: %g energy ", i, energy);
+//                printf("Inference converged in %u iterations: %g energy ", i, energy);
             } else {
 //                DEBUG_ULTIMATE("Inference aborted (energy increased): %u iterations, %g energy (%s)", i, energy, TD_TIMER_GET_FMT().c_str());
-                printf("Inference aborted (energy increased): %u iterations, %g energy ", i, energy);
+//                printf("Inference aborted (energy increased): %u iterations, %g energy ", i, energy);
             }
             return energy;
         }
