@@ -21,11 +21,15 @@ namespace MvsTexturing {
             std::uint16_t view_id;
             float quality;
             math::Vec3f mean_color;
+            double color_gauss_value = 1.0f;
+
+            double mean_gradient;
+            double gradient_gauss_value = 1.0f;
+
             float view_angle;
-            double gauss_value = 1.0f;
 
             explicit FaceProjectionInfo(std::uint16_t _view_id, float _quality,
-                               math::Vec3f _mean_color, float _view_angle) :
+                                        math::Vec3f _mean_color, float _view_angle) :
                     view_id(_view_id), quality(_quality),
                     mean_color(_mean_color), view_angle(_view_angle) {}
 
@@ -53,9 +57,10 @@ namespace MvsTexturing {
             std::size_t get_id(void) const;
 
             /** Returns the 2D pixel coordinates of the given vertex projected into the view. */
-            math::Vec2f get_pixel_coords(math::Vec3f const & vertex) const;
+            math::Vec2f get_pixel_coords(math::Vec3f const &vertex) const;
+
             /** Returns the RGB pixel values [0, 1] for the given vertex projected into the view, calculated by linear interpolation. */
-            math::Vec3f get_pixel_values(math::Vec3f const & vertex) const;
+            math::Vec3f get_pixel_values(math::Vec3f const &vertex) const;
 
             /** Returns whether the pixel location is valid in this view.
               * The pixel location is valid if its inside the visible area and,
@@ -63,22 +68,30 @@ namespace MvsTexturing {
               */
             bool valid_pixel(math::Vec2f pixel) const;
 
-            bool inside(math::Vec3f const & v1, math::Vec3f const & v2, math::Vec3f const & v3) const;
+            bool inside(math::Vec3f const &v1, math::Vec3f const &v2, math::Vec3f const &v3) const;
 
             /** Returns the RGB pixel values [0, 1] for the give pixel location. */
-            math::Vec3f get_pixel_values(math::Vec2f const & pixel) const;
+            math::Vec3f get_pixel_values(math::Vec2f const &pixel) const;
 
             /** Constructs a TextureView from the give mve::CameraInfo containing the given image. */
-            TextureView(std::size_t id, mve::CameraInfo const & camera, std::string const & image_file);
+            TextureView(std::size_t id, mve::CameraInfo const &camera, std::string const &image_file);
 
             /** Returns the position. */
             math::Vec3f get_pos(void) const;
+
             /** Returns the viewing direction. */
             math::Vec3f get_viewing_direction(void) const;
+
             /** Returns the width of the corresponding image. */
             int get_width(void) const;
+
             /** Returns the height of the corresponding image. */
             int get_height(void) const;
+
+            const std::string &get_image_name() const {
+                return image_file;
+            }
+
             /** Returns a reference pointer to the corresponding image. */
             mve::ByteImage::Ptr get_image(void) const;
 
@@ -87,15 +100,19 @@ namespace MvsTexturing {
 
             /** Loads the corresponding image. */
             void load_image(void);
+
             /** Generates the validity mask. */
             void generate_validity_mask(void);
+
             /** Generates the gradient magnitude image for the encapsulated image. */
             void generate_gradient_magnitude(void);
 
             /** Releases the validity mask. */
             void release_validity_mask(void);
+
             /** Releases the gradient magnitude image. */
             void release_gradient_magnitude(void);
+
             /** Releases the corresponding image. */
             void release_image(void);
 
@@ -110,6 +127,10 @@ namespace MvsTexturing {
 
             void
             export_validity_mask(std::string const &filename) const;
+
+            const std::string &get_image_file() {
+                return image_file;
+            }
         };
 
         inline std::size_t
@@ -144,7 +165,7 @@ namespace MvsTexturing {
         }
 
         inline bool
-        TextureView::inside(math::Vec3f const & v1, math::Vec3f const & v2, math::Vec3f const & v3) const {
+        TextureView::inside(math::Vec3f const &v1, math::Vec3f const &v2, math::Vec3f const &v3) const {
             math::Vec2f p1 = get_pixel_coords(v1);
             math::Vec2f p2 = get_pixel_coords(v2);
             math::Vec2f p3 = get_pixel_coords(v3);
@@ -152,20 +173,20 @@ namespace MvsTexturing {
         }
 
         inline math::Vec2f
-        TextureView::get_pixel_coords(math::Vec3f const & vertex) const {
+        TextureView::get_pixel_coords(math::Vec3f const &vertex) const {
             math::Vec3f pixel = projection * world_to_cam.mult(vertex, 1.0f);
             pixel /= pixel[2];
             return math::Vec2f(pixel[0] - 0.5f, pixel[1] - 0.5f);
         }
 
         inline math::Vec3f
-        TextureView::get_pixel_values(math::Vec3f const & vertex) const {
+        TextureView::get_pixel_values(math::Vec3f const &vertex) const {
             math::Vec2f pixel = get_pixel_coords(vertex);
             return get_pixel_values(pixel);
         }
 
         inline math::Vec3f
-        TextureView::get_pixel_values(math::Vec2f const & pixel) const {
+        TextureView::get_pixel_values(math::Vec2f const &pixel) const {
             assert(image != NULL);
             math::Vec3uc values;
             image->linear_at(pixel[0], pixel[1], *values);

@@ -355,6 +355,38 @@ namespace MvsTexturing {
                 mesh_info->initialize(mesh);
             }
 
+            void build_adjacency_graph(mve::SubMesh::Ptr mesh, const mve::MeshInfo &mesh_info, Base::LabelGraph *graph) {
+                mve::TriangleMesh::FaceList const &faces = mesh->getFaces();
+                std::vector<std::size_t> faceIDs = mesh->getFaceIDs();
+                std::size_t nFaces = faceIDs.size();
+
+                for (std::size_t faceID: faceIDs) {
+                    std::size_t v1 = faces[faceID * 3];
+                    std::size_t v2 = faces[faceID * 3 + 1];
+                    std::size_t v3 = faces[faceID * 3 + 2];
+
+                    std::vector<std::size_t> adj_faces;
+                    mesh_info.get_faces_for_edge(v1, v2, &adj_faces);
+                    mesh_info.get_faces_for_edge(v2, v3, &adj_faces);
+                    mesh_info.get_faces_for_edge(v3, v1, &adj_faces);
+
+                    for (std::size_t j = 0; j < adj_faces.size(); ++j) {
+                        /* Face id vs. face position. */
+                        std::size_t adj_face = adj_faces[j];
+
+                        if (adj_face != faceID && mesh->containsFace(adj_face)) {
+                            std::size_t mappedFaceID = mesh->subFaceMapped(faceID);
+                            std::size_t mappedAdjFaceID = mesh->subFaceMapped(adj_face);
+
+                            if (!graph->has_edge(mappedFaceID, mappedAdjFaceID)) {
+                                graph->add_edge(mappedFaceID, mappedAdjFaceID);
+                            }
+                        }
+                    }
+                }
+            }
+
+
             void build_adjacency_graph(MeshConstPtr mesh, const mve::MeshInfo &mesh_info, Base::LabelGraph *graph) {
                 mve::TriangleMesh::FaceList const &faces = mesh->get_faces();
                 std::size_t const num_faces = faces.size() / 3;

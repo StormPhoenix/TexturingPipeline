@@ -32,7 +32,7 @@ namespace MvsTexturing {
 
             void solve_projection_problem(mve::TriangleMesh::ConstPtr mesh, const mve::MeshInfo &mesh_info,
                                           const acc::BVHTree<unsigned int, math::Vec3f> &bvh_tree,
-                                          const std::vector<Base::FaceGroup> &planar_groups,
+                                          const std::vector<Base::PlanarAreaFaceGroup> &planar_groups,
                                           Base::LabelGraph &graph, std::vector<Base::TextureView> &texture_views,
                                           const Parameter &param);
 
@@ -41,6 +41,12 @@ namespace MvsTexturing {
                                           Base::LabelGraph &graph,
                                           std::vector<Base::TextureView> &texture_views,
                                           const Parameter &param);
+
+            void solve_OptimalPerFace(mve::TriangleMesh::ConstPtr mesh, const mve::MeshInfo &mesh_info,
+                                      const acc::BVHTree<unsigned int, math::Vec3f> &bvh_tree,
+                                      Base::LabelGraph &graph,
+                                      std::vector<Base::TextureView> &texture_views,
+                                      const Parameter &param);
         }
 
         namespace Mrf {
@@ -53,6 +59,12 @@ namespace MvsTexturing {
                                       DataCosts *data_costs);
 
             void solve_mrf_problem(const DataCosts &data_costs, Base::LabelGraph &graph, const Parameter &param);
+
+            void
+            solveMultipleMrfProblem(mve::TriangleMesh::Ptr mesh, mve::MeshInfo &meshInfo, const Parameter &param,
+                                    const acc::BVHTree<unsigned int, math::Vec3f> &bvhTree, Base::LabelGraph &graph,
+                                    std::vector<Base::TextureView> &textureViews,
+                                    std::vector<MvsTexturing::Base::PlanarAreaFaceGroup> &areas);
         }
     }
 }

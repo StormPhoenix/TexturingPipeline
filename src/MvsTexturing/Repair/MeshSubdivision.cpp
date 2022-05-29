@@ -394,7 +394,6 @@ namespace MvsTexturing {
                         f2.opposite_edge(newly_vertex_id, f2_opposite_edge);
                         std::size_t f2_oppo_edge_id = edge_id_map[f2_opposite_edge];
                         ef_adjacency[f2_oppo_edge_id].replace_face(f_id, split_face2_id);
-                        // TODO make len heap
                     }
                 }
 

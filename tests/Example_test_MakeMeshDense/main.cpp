@@ -43,7 +43,7 @@ int main(int argc, char **argv) {
 
     std::cout << "MakeDense origin model - faces: " << F.rows() << " vertices: " << V.rows() << std::endl;
     MeshSubdivision::AttributeMatrix FC, out_FC;
-    MeshSubdivision::make_mesh_dense(V, F, out_V, out_F, FC, out_FC);
+    MeshSubdivision::make_mesh_dense(V, F, out_V, out_F, FC, out_FC, 0.05, 982513);
     std::cout << "MakeDense result model - faces: " << out_F.rows() << " vertices: " << out_V.rows() << std::endl;
 
     if (!MvsTexturing::IO::save_ply_mesh(out_mesh_path, out_V, out_F)) {

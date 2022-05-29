@@ -28,14 +28,6 @@
 
 typedef acc::BVHTree<unsigned int, math::Vec3f> BVHTree;
 
-void parse_args(int argc, char **argv, MvsTexturing::Parameter &param);
-
-void preprocessing(int argc, char **argv);
-
-void run_mrf_method(const MvsTexturing::MeshPtr mesh, const BVHTree &bvh_tree,
-                    const MvsTexturing::Parameter &param, MvsTexturing::Base::LabelGraph &graph,
-                    std::vector<MvsTexturing::Base::TextureView> &texture_views);
-
 using MeshPtr = MvsTexturing::MeshPtr;
 using MeshInfo = MvsTexturing::MeshInfo;
 using LabelGraph = MvsTexturing::Base::LabelGraph;
@@ -50,6 +42,14 @@ using FloatImageConstPtr = mve::FloatImage::ConstPtr;
 using FaceGroup = MvsTexturing::MeshRepair::FaceGroup;
 using FaceSubdivisions = std::vector<std::vector<std::size_t>>;
 using TriMesh = MeshPolyRefinement::Base::TriMesh;
+
+void parse_args(int argc, char **argv, MvsTexturing::Parameter &param);
+
+void preprocessing(int argc, char **argv);
+
+void run_mrf_method(const MvsTexturing::MeshPtr mesh, const BVHTree &bvh_tree,
+                    const MvsTexturing::Parameter &param, MvsTexturing::Base::LabelGraph &graph,
+                    std::vector<MvsTexturing::Base::TextureView> &texture_views);
 
 namespace __inner__ {
     using namespace MvsTexturing;
@@ -92,6 +92,41 @@ namespace __inner__ {
             }
         }
     };
+}
+
+void plane_detection(const MvsTexturing::MeshPtr mesh, const Parameter &param, std::vector<FaceGroup> &planar_groups) {
+    using namespace MvsTexturing;
+    using PlaneGroup = MeshPolyRefinement::Base::PlaneGroup;
+
+    TriMesh tri_mesh;
+    Utils::mveMesh_to_triMesh(mesh, tri_mesh);
+    {
+        using namespace MeshPolyRefinement;
+        // detect planes on mesh using region-growing
+        PlaneEstimation::region_growing_plane_estimate(tri_mesh, param.planar_score,
+                                                       param.angle_threshold,
+                                                       param.ratio_threshold, param.min_plane_size);
+
+        // expand plane segment regions
+        PlaneEstimation::plane_region_expand(tri_mesh, 50.0, 45.0);
+
+        // filter small non-plane regions
+        PlaneEstimation::plane_region_refine(tri_mesh);
+
+        // merge parallel adjacent plane segments
+        PlaneEstimation::plane_region_merge(tri_mesh);
+
+        for (std::size_t group_id = 0; group_id < tri_mesh.m_plane_groups.size(); group_id++) {
+            PlaneGroup &group = tri_mesh.m_plane_groups[group_id];
+            planar_groups.push_back(FaceGroup());
+
+            for (std::size_t f_index: group.m_indices) {
+                planar_groups.back().m_face_indices.push_back(f_index);
+            }
+            planar_groups.back().m_plane_center = group.m_plane_center;
+            planar_groups.back().m_plane_normal = group.m_plane_normal;
+        }
+    }
 }
 
 bool texture_from_dense_to_sparse_model(
@@ -160,7 +195,7 @@ int main(int argc, char **argv) {
     if (param.debug_mode) {
         spdlog::set_level(spdlog::level::debug);
     }
-    LOG_DEBUG("###### MvsTexturing ------ args, plane_density: {}", param.plane_density);
+    LOG_INFO("###### MvsTexturing ------ args, plane_density: {}", param.plane_density);
 
     using namespace MvsTexturing;
     util::WallTimer whole_timer;
@@ -190,13 +225,13 @@ int main(int argc, char **argv) {
                     (origin_mesh.m_face_colors.rows() != origin_mesh.m_faces.rows())) {
                     LOG_WARN(" - WARNING !!! the sparse model dose not have face color attribute");
                     origin_mesh.m_has_face_color = false;
+                } else {
+                    origin_mesh.m_has_face_color = true;
                 }
-
-                origin_mesh.m_has_face_color = true;
             }
 
-            // TODO if model is colored, then take colors into consideration in remove duplicated faces step
-            // TODO if not, only removing duplicated faces step was executed.
+            // if model is colored, then take colors into consideration in remove duplicated faces step
+            // else, only removing duplicated faces step was executed.
 
             // remove duplicated faces
             {
@@ -234,7 +269,7 @@ int main(int argc, char **argv) {
                         }
                     }
 
-                    for (FaceGroup &group : origin_planar_groups) {
+                    for (FaceGroup &group: origin_planar_groups) {
                         MeshRepair::fit_face_group_plane(origin_mesh.m_vertices, origin_mesh.m_faces, group);
                     }
                     LOG_INFO(" - done. {} plane patches, {} irregular faces loaded", origin_planar_groups.size(),
@@ -267,7 +302,7 @@ int main(int argc, char **argv) {
                         const MeshPolyRefinement::Base::PlaneGroup &group = sparse_tri_mesh.m_plane_groups[group_idx];
                         FaceGroup &dest_group = origin_planar_groups[group_idx];
 
-                        for (std::size_t group_face_idx : group.m_indices) {
+                        for (std::size_t group_face_idx: group.m_indices) {
                             dest_group.m_face_indices.push_back(group_face_idx);
                         }
 
@@ -554,7 +589,6 @@ bool map_textures(MeshPtr input_mesh, MeshInfo &mesh_info, TextureViews &texture
             if (param.method_type == "mrf") {
                 LOG_INFO(" - MRF algorithm started ... ");
                 run_mrf_method(input_mesh, bvh_tree, param, graph, texture_views);
-
                 LOG_INFO(" - MRF optimization done");
             } else if (param.method_type == "projection") {
                 LOG_INFO(" - projection algorithm started ... ");
@@ -562,16 +596,20 @@ bool map_textures(MeshPtr input_mesh, MeshInfo &mesh_info, TextureViews &texture
                 {
                     if (param.sparse_model) {
                         std::vector<FaceGroup> mesh_planar_groups;
-                        for (const FaceGroup &origin_group : origin_planar_groups) {
+                        for (const FaceGroup &origin_group: origin_planar_groups) {
                             mesh_planar_groups.push_back(FaceGroup());
                             FaceGroup &dense_group = mesh_planar_groups.back();
 
-                            for (std::size_t origin_f_index : origin_group.m_face_indices) {
-                                for (std::size_t dense_f_index : face_subdivisions[origin_f_index]) {
+                            for (std::size_t origin_f_index: origin_group.m_face_indices) {
+                                for (std::size_t dense_f_index: face_subdivisions[origin_f_index]) {
                                     dense_group.m_face_indices.push_back(dense_f_index);
                                 }
                             }
+
+                            dense_group.m_plane_center = origin_group.m_plane_center;
+                            dense_group.m_plane_normal = origin_group.m_plane_normal;
                         }
+                        // 额外的纹理参数：mesh_planar_groups，表明输入的纹理经过均匀细分
                         VS::Projection::solve_projection_problem(input_mesh, mesh_info, bvh_tree, mesh_planar_groups,
                                                                  graph, texture_views, param);
                     } else {
@@ -584,6 +622,41 @@ bool map_textures(MeshPtr input_mesh, MeshInfo &mesh_info, TextureViews &texture
                 LOG_INFO(" - region growing algorithm started ... ");
                 VS::RegionGrowing::solve_RegionGrowing_problem(input_mesh, bvh_tree, param, texture_views, graph);
                 LOG_INFO(" - region growing algorithm done");
+            } else if (param.method_type == "optimal") {
+                LOG_INFO(" - run optimal algorithm started ... ");
+                VS::Projection::solve_OptimalPerFace(input_mesh, mesh_info, bvh_tree, graph, texture_views, param);
+                LOG_INFO(" - run optimal algorithm done");
+            } else if (param.method_type == "submrf") {
+                LOG_INFO(" - Sub-MRF algorithm started ... ");
+                if (param.sparse_model) {
+                    std::vector<FaceGroup> mesh_planar_groups;
+                    for (const FaceGroup &origin_group: origin_planar_groups) {
+                        mesh_planar_groups.push_back(FaceGroup());
+                        FaceGroup &dense_group = mesh_planar_groups.back();
+
+                        for (std::size_t origin_f_index: origin_group.m_face_indices) {
+                            for (std::size_t dense_f_index: face_subdivisions[origin_f_index]) {
+                                dense_group.m_face_indices.push_back(dense_f_index);
+                            }
+                        }
+
+                        dense_group.m_plane_center = origin_group.m_plane_center;
+                        dense_group.m_plane_normal = origin_group.m_plane_normal;
+                    }
+                    VS::Mrf::solveMultipleMrfProblem(input_mesh, mesh_info, param, bvh_tree,
+                                                     graph, texture_views, mesh_planar_groups);
+                } else {
+                    if (origin_planar_groups.size() > 0) {
+                        VS::Mrf::solveMultipleMrfProblem(input_mesh, mesh_info, param, bvh_tree,
+                                                         graph, texture_views, origin_planar_groups);
+                    } else {
+                        std::vector<FaceGroup> planar_groups;
+                        plane_detection(input_mesh, param, planar_groups);
+                        VS::Mrf::solveMultipleMrfProblem(input_mesh, mesh_info, param, bvh_tree,
+                                                         graph, texture_views, planar_groups);
+                    }
+                }
+                LOG_INFO(" - Sub-MRF optimization done");
             } else {
                 LOG_ERROR(" - view selection method not supported: {}", param.method_type);
                 return false;
@@ -592,7 +665,8 @@ bool map_textures(MeshPtr input_mesh, MeshInfo &mesh_info, TextureViews &texture
             std::cout << "Loading labeling from file... " << std::flush;
 
             /* Load labeling from file. */
-            std::vector<std::size_t> labeling = MvsTexturing::Utils::vector_from_file<std::size_t>(param.labeling_file);
+            std::vector<std::size_t> labeling = MvsTexturing::Utils::vector_from_file<std::size_t>(
+                    param.labeling_file);
             if (labeling.size() != graph.num_nodes()) {
                 std::cerr << "Wrong labeling file for this mesh/scene combination... aborting!" << std::endl;
                 std::exit(EXIT_FAILURE);
@@ -625,6 +699,13 @@ bool map_textures(MeshPtr input_mesh, MeshInfo &mesh_info, TextureViews &texture
 
         if (texture_patches.size() <= 0) {
             LOG_WARN(" - no primary texture generated");
+        }
+
+        if (param.method_type == "projection" || param.sparse_model == true) {
+            for (TexturePatch::Ptr patch: texture_patches) {
+                // Image sharpen
+//                patch->get_image()->sharpen();
+            }
         }
 
         if (param.debug_mode) {

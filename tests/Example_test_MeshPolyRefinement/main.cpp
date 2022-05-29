@@ -20,18 +20,30 @@ int main(int argc, char *argv[]) {
     bpo::options_description opts("Example test MeshRefinement options");
     bpo::variables_map vm;
 
+//    opts.add_options()
+//            ("help", "produce help message")
+//            ("input_mesh", bpo::value<std::string>()->default_value("semantic_mesh.ply"), "path of input dense mesh")
+//            ("output_mesh", bpo::value<std::string>()->default_value("res.ply"), "path of output simplified mesh")
+//            ("planar_score", bpo::value<double>()->default_value(0.97),
+//             "minimal planar score of face during plane estimation, default 0.97")
+//            ("angle", bpo::value<double>()->default_value(10.0),
+//             "maximal angle in degree that plane segment should accept face, default 10.0")
+//            ("ratio", bpo::value<double>()->default_value(5.0),
+//             "maximal distance ratio that plane segment should accept face, default 5.0")
+//            ("plane_size", bpo::value<int>()->default_value(10),
+//             "minimal number of facets in plane segment, default 10");
+
     opts.add_options()
             ("help", "produce help message")
             ("input_mesh", bpo::value<std::string>()->default_value("semantic_mesh.ply"), "path of input dense mesh")
             ("output_mesh", bpo::value<std::string>()->default_value("res.ply"), "path of output simplified mesh")
-//            ("planar_score", bpo::value<double>()->default_value(0.3),
-            ("planar_score", bpo::value<double>()->default_value(0.97),
+            ("planar_score", bpo::value<double>()->default_value(0.3),
              "minimal planar score of face during plane estimation, default 0.97")
-            ("angle", bpo::value<double>()->default_value(10.0),
+            ("angle", bpo::value<double>()->default_value(30.0),
              "maximal angle in degree that plane segment should accept face, default 10.0")
-            ("ratio", bpo::value<double>()->default_value(5.0),
+            ("ratio", bpo::value<double>()->default_value(20.0),
              "maximal distance ratio that plane segment should accept face, default 5.0")
-            ("plane_size", bpo::value<int>()->default_value(10),
+            ("plane_size", bpo::value<int>()->default_value(5),
              "minimal number of facets in plane segment, default 10");
 
     try {

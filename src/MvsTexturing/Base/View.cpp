@@ -203,13 +203,32 @@ namespace MvsTexturing {
                             colors += color;
                         }
 
-                        if (param.data_term == Data_Term_GMI) {
-                            gmi += static_cast<double>(gradient_magnitude->at(x, y, 0)) / 255.0;
-                        }
+                        gmi += static_cast<double>(gradient_magnitude->at(x, y, 0)) / 255.0;
                         ++num_samples;
                     }
                 }
             }
+
+            if (param.outlier_removal != Outlier_Removal_None) {
+                if (num_samples > 0) {
+                    face_info->mean_color = (colors / num_samples);
+                    face_info->mean_gradient = (gmi / num_samples);
+                } else {
+                    math::Vec3d c1, c2, c3;
+                    for (std::size_t i = 0; i < 3; ++i) {
+                        c1[i] = static_cast<double>(image->linear_at(p1[0], p1[1], i)) / 255.0;
+                        c2[i] = static_cast<double>(image->linear_at(p2[0], p2[1], i)) / 255.0;
+                        c3[i] = static_cast<double>(image->linear_at(p3[0], p3[1], i)) / 255.0;
+                    }
+                    face_info->mean_color = ((c1 + c2 + c3) / 3.0);
+
+                    double gmv1 = static_cast<double>(gradient_magnitude->linear_at(p1[0], p1[1], 0)) / 255.0;
+                    double gmv2 = static_cast<double>(gradient_magnitude->linear_at(p2[0], p2[1], 0)) / 255.0;
+                    double gmv3 = static_cast<double>(gradient_magnitude->linear_at(p3[0], p3[1], 0)) / 255.0;
+                    face_info->mean_gradient = ((gmv1 + gmv2 + gmv3) / 3.0) * area;
+                }
+            }
+
 
             if (param.data_term == Data_Term_GMI) {
                 if (num_samples > 0) {
@@ -219,20 +238,6 @@ namespace MvsTexturing {
                     double gmv2 = static_cast<double>(gradient_magnitude->linear_at(p2[0], p2[1], 0)) / 255.0;
                     double gmv3 = static_cast<double>(gradient_magnitude->linear_at(p3[0], p3[1], 0)) / 255.0;
                     gmi = ((gmv1 + gmv2 + gmv3) / 3.0) * area;
-                }
-            }
-
-            if (param.outlier_removal != Outlier_Removal_None) {
-                if (num_samples > 0) {
-                    face_info->mean_color = colors / num_samples;
-                } else {
-                    math::Vec3d c1, c2, c3;
-                    for (std::size_t i = 0; i < 3; ++i) {
-                        c1[i] = static_cast<double>(image->linear_at(p1[0], p1[1], i)) / 255.0;
-                        c2[i] = static_cast<double>(image->linear_at(p2[0], p2[1], i)) / 255.0;
-                        c3[i] = static_cast<double>(image->linear_at(p3[0], p3[1], i)) / 255.0;
-                    }
-                    face_info->mean_color = ((c1 + c2 + c3) / 3.0);
                 }
             }
 

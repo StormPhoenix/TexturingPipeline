@@ -14,13 +14,13 @@ namespace MvsTexturing {
     using Vec4 = Eigen::Matrix<double, 1, 4>;
 
     namespace Base {
-        class FaceGroup {
+        class PlanarAreaFaceGroup {
         public:
             std::vector<std::size_t> m_face_indices;
             Vec3 m_plane_normal, m_plane_center;
             Vec3 m_x_axis, m_y_axis;
 
-            explicit FaceGroup() {}
+            explicit PlanarAreaFaceGroup() {}
         };
     }
 }
