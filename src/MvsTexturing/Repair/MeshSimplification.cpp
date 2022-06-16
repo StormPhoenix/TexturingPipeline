@@ -143,6 +143,50 @@ namespace MvsTexturing {
             }
         }
 
+        unsigned int getFaceGroupPixelCount(const IndexMatrix &denseMeshFaces, const AttributeMatrix &denseMeshVertices,
+                                            const std::vector<math::Vec2f> &denseMeshFaceTextureCoords,
+                                            const FaceGroup &faceGroup, const FacesSubdivisions &facesSubdivision) {
+            int ans = 0;
+            const std::size_t nFaces = faceGroup.m_face_indices.size();
+            for (int i = 0; i < nFaces; i++) {
+                const std::size_t groupFaceID = faceGroup.m_face_indices[i];
+                const std::vector<std::size_t> &subdivisionFaces = facesSubdivision[groupFaceID];
+                for (std::size_t faceID: subdivisionFaces) {
+                    math::Vec2f src_uv1 = denseMeshFaceTextureCoords[faceID * 3 + 0];
+                    math::Vec2f src_uv2 = denseMeshFaceTextureCoords[faceID * 3 + 1];
+                    math::Vec2f src_uv3 = denseMeshFaceTextureCoords[faceID * 3 + 2];
+
+                    using namespace MvsTexturing;
+                    Math::Tri2D tri(src_uv1, src_uv2, src_uv3);
+                    const int pixelCount = int(tri.get_area());
+                    ans += pixelCount;
+                }
+            }
+            return ans;
+        }
+
+        double getFaceGroupArea(const FaceGroup &faceGroup, const IndexMatrix &meshFaces,
+                                const AttributeMatrix &meshVertices) {
+            double ans = 0.;
+            const std::size_t nFaces = faceGroup.m_face_indices.size();
+            for (int i = 0; i < nFaces; i++) {
+                const std::size_t faceID = faceGroup.m_face_indices[i];
+                AttributeMatrix facePoints3 = meshVertices(meshFaces.row(faceID), Eigen::all);
+
+                math::Vec3f v1(facePoints3(0, 0), facePoints3(0, 1), facePoints3(0, 2));
+                math::Vec3f v2(facePoints3(1, 0), facePoints3(1, 1), facePoints3(1, 2));
+                math::Vec3f v3(facePoints3(2, 0), facePoints3(2, 1), facePoints3(2, 2));
+
+                math::Vec3f d12 = v2 - v1;
+                math::Vec3f d13 = v3 - v1;
+
+                const double area = d12.cross(d13).norm() * 0.5;
+                ans += area;
+            }
+
+            return ans;
+        }
+
         bool create_plane_patches_on_sparse_mesh(
                 const Parameter &param, const AttributeMatrix &sparse_mesh_vertices,
                 const IndexMatrix &sparse_mesh_faces, const std::vector<FaceGroup> &sparse_planar_groups,
@@ -152,8 +196,10 @@ namespace MvsTexturing {
                 const std::vector<FloatImageConstPtr> &dense_mesh_face_materials,
 
                 const FacesSubdivisions &faces_subdivision, std::vector<TexturePatch::Ptr> *final_texture_patches,
-                std::size_t padding_pixels, std::size_t plane_density) {
+                std::size_t padding_pixels, float textureQuality) {
             padding_pixels = std::max(padding_pixels, std::size_t(2));
+
+            std::size_t planeDensity = 100;
 
             if ((dense_mesh_faces.rows() * 3) != dense_mesh_face_texture_coords.size()) {
                 // dense mesh data error
@@ -175,6 +221,14 @@ namespace MvsTexturing {
 
             for (int g_idx = 0; g_idx < sparse_planar_groups.size(); g_idx++) {
                 const FaceGroup &face_group = sparse_planar_groups[g_idx];
+
+                double groupArea = getFaceGroupArea(face_group, sparse_mesh_faces, sparse_mesh_vertices);
+                double pixelCount = getFaceGroupPixelCount(dense_mesh_faces, dense_mesh_vertices,
+                                                           dense_mesh_face_texture_coords, face_group,
+                                                           faces_subdivision);
+
+                planeDensity = std::sqrt(double(pixelCount) / double(groupArea));
+                planeDensity *= textureQuality;
 
                 // compute 3D uv
                 double max_dx, min_dx = 0;
@@ -259,8 +313,8 @@ namespace MvsTexturing {
                 Scalar d_height = max_dy - min_dy;
 
                 // Create images
-                const std::size_t image_width = d_width * plane_density + 2 * padding_pixels;
-                const std::size_t image_height = d_height * plane_density + 2 * padding_pixels;
+                const std::size_t image_width = d_width * planeDensity + 2 * padding_pixels;
+                const std::size_t image_height = d_height * planeDensity + 2 * padding_pixels;
                 mve::FloatImage::Ptr patch_image = mve::FloatImage::create(image_width, image_height, 3);
 
                 float random_color[3];
@@ -277,21 +331,21 @@ namespace MvsTexturing {
                 patch_image->fill_color(random_color);
 
                 // Re-scale texture coords
-                double padding = double(padding_pixels) / plane_density;
+                double padding = double(padding_pixels) / planeDensity;
 #pragma omp parallel for schedule(dynamic)
                 for (std::size_t i = 0; i < sparse_mesh_texture_coords.size(); i++) {
                     sparse_mesh_texture_coords[i][0] =
-                            (sparse_mesh_texture_coords[i][0] - min_dx + padding) * plane_density;
+                            (sparse_mesh_texture_coords[i][0] - min_dx + padding) * planeDensity;
                     sparse_mesh_texture_coords[i][1] =
-                            (sparse_mesh_texture_coords[i][1] - min_dy + padding) * plane_density;
+                            (sparse_mesh_texture_coords[i][1] - min_dy + padding) * planeDensity;
                 }
 
 #pragma omp parallel for schedule(dynamic)
                 for (std::size_t i = 0; i < dense_mesh_texture_coords.size(); i++) {
                     dense_mesh_texture_coords[i][0] =
-                            (dense_mesh_texture_coords[i][0] - min_dx + padding) * plane_density;
+                            (dense_mesh_texture_coords[i][0] - min_dx + padding) * planeDensity;
                     dense_mesh_texture_coords[i][1] =
-                            (dense_mesh_texture_coords[i][1] - min_dy + padding) * plane_density;
+                            (dense_mesh_texture_coords[i][1] - min_dy + padding) * planeDensity;
                 }
 
                 if (dense_mesh_face_materials.size() > 0) {
@@ -590,7 +644,7 @@ namespace MvsTexturing {
                     }
                 }
 
-                for (auto f_index : result.back()) {
+                for (auto f_index: result.back()) {
                     sparse_patch.erase(f_index);
                 }
             }
@@ -605,19 +659,19 @@ namespace MvsTexturing {
 
                 const std::vector<std::vector<std::size_t>> &face_subdivisions,
                 std::vector<MvsTexturing::Base::TexturePatch::Ptr> *texture_patches,
-                const std::size_t kPaddingPixels, const std::size_t kPlaneDensity) {
+                const std::size_t kPaddingPixels) {
 
             if (texture_patches == nullptr) {
                 LOG_ERROR(" - create_irregular_patches_on_sparse_mesh() : variable texture_patches is null");
                 return false;
             }
             const int kExistPatches = texture_patches->size();
-            for (std::set<std::size_t> &sparse_patch : sparse_irregular_patches) {
+            for (std::set<std::size_t> &sparse_patch: sparse_irregular_patches) {
                 std::vector<std::vector<std::size_t>> same_material_patch;
                 divide_faces_by_texture(spares_ff_adjacency, sparse_patch, dense_face_materials,
                                         dense_texture_coords, face_subdivisions, same_material_patch);
 
-                for (const auto &sparse_patch_faces : same_material_patch) {
+                for (const auto &sparse_patch_faces: same_material_patch) {
                     FloatImageConstPtr material = dense_face_materials[sparse_patch_faces[0]];
                     const int material_width = material->width();
                     const int material_height = material->height();
@@ -626,7 +680,7 @@ namespace MvsTexturing {
                     int max_x = 0, max_y = 0;
 
                     std::vector<math::Vec2f> sparse_patch_texture_coords;
-                    for (std::size_t sparse_face_index : sparse_patch_faces) {
+                    for (std::size_t sparse_face_index: sparse_patch_faces) {
                         std::size_t dense_face_index = face_subdivisions[sparse_face_index][0];
 
                         math::Vec2f src_v1 = dense_texture_coords[dense_face_index * 3 + 0];
@@ -740,7 +794,7 @@ namespace MvsTexturing {
                 const std::vector<FloatImageConstPtr> &dense_face_materials,
                 const FacesSubdivisions &faces_subdivision,
                 std::vector<TexturePatch::Ptr> *final_texture_patches,
-                const std::size_t kPaddingPixels, const std::size_t kPlaneDensity) {
+                const std::size_t kPaddingPixels) {
 
             IndexMatrix ff_adjacency;
             igl::triangle_triangle_adjacency(sparse_mesh_faces, ff_adjacency);
@@ -753,7 +807,7 @@ namespace MvsTexturing {
                 // find connected faces
                 find_connected_face_group(ff_adjacency, irregular_patch_faces,
                                           face_index, irregular_patches.back());
-                for (auto f_index : irregular_patches.back()) {
+                for (auto f_index: irregular_patches.back()) {
                     irregular_patch_faces.erase(f_index);
                 }
             }
@@ -761,7 +815,7 @@ namespace MvsTexturing {
             return create_irregular_patches_on_sparse_mesh(ff_adjacency, irregular_patches, dense_texture_coords,
                                                            dense_face_materials, faces_subdivision,
                                                            final_texture_patches,
-                                                           kPaddingPixels, kPlaneDensity);
+                                                           kPaddingPixels);
         }
 
         bool fit_face_group_plane(const AttributeMatrix &vertices, const IndexMatrix &faces, FaceGroup &group) {
