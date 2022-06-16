@@ -195,7 +195,7 @@ int main(int argc, char **argv) {
     if (param.debug_mode) {
         spdlog::set_level(spdlog::level::debug);
     }
-    LOG_INFO("###### MvsTexturing ------ args, plane_density: {}", param.plane_density);
+    LOG_INFO("###### MvsTexturing ------ args, texture_quality: {}", param.textureQuality);
 
     using namespace MvsTexturing;
     util::WallTimer whole_timer;
@@ -488,7 +488,7 @@ void parse_args(int argc, char **argv, MvsTexturing::Parameter &param) {
              "write intermediate results [false]")
             ("sparse_model", bpo::value<bool>()->default_value(false),
              "whether the mesh is sparse {true, false} [false]")
-            ("plane_density", bpo::value<int>()->default_value(400), "plane quality [400]")
+            ("texture_quality", bpo::value<float>()->default_value(1.0), "texture quality [1.0]")
             ("tone_mapping", bpo::value<std::string>()->default_value("none"),
              "Tone mapping method: {none, gamma} [none]")
             ("mrf_call_lib", bpo::value<std::string>()->default_value("mapmap"),
@@ -523,7 +523,13 @@ void parse_args(int argc, char **argv, MvsTexturing::Parameter &param) {
     param.min_plane_size = 5;
 
     param.sparse_model = vm["sparse_model"].as<bool>();
-    param.plane_density = vm["plane_density"].as<int>();
+    param.textureQuality = vm["texture_quality"].as<float>();
+    if (param.textureQuality <= 0) {
+        param.textureQuality = 0;
+    } else if (param.textureQuality > 1.0) {
+        param.textureQuality = 1.0;
+    }
+
     param.debug_mode = vm["debug_mode"].as<bool>();
 }
 
@@ -869,7 +875,8 @@ bool texture_from_dense_to_sparse_model(
     int ret = MvsTexturing::MeshRepair::create_plane_patches_on_sparse_mesh(
             param, sparse_mesh.m_vertices, sparse_mesh.m_faces, planar_groups,
             dense_mesh.m_vertices, dense_mesh.m_faces, dense_mesh_face_texture_coords, dense_mesh_face_materials,
-            face_subdivisions, final_patches, Base::TexturePatch::kTexturePatchPadding, param.plane_density);
+            face_subdivisions, final_patches, Base::TexturePatch::kTexturePatchPadding,
+            param.textureQuality);
 
     if (!ret) {
         LOG_ERROR(" - texture_from_dense_to_sparse_model() : create plane patches failed");
@@ -881,7 +888,7 @@ bool texture_from_dense_to_sparse_model(
     ret = MeshRepair::create_irregular_patches_on_sparse_mesh(
             sparse_mesh.m_vertices, sparse_mesh.m_faces, irregular_patch_faces,
             dense_mesh_face_texture_coords, dense_mesh_face_materials,
-            face_subdivisions, final_patches, Base::TexturePatch::kTexturePatchPadding, param.plane_density);
+            face_subdivisions, final_patches, Base::TexturePatch::kTexturePatchPadding);
     if (!ret) {
         LOG_ERROR(" - texture_from_dense_to_sparse_model() : create irregular patches failed");
         return false;

@@ -1320,6 +1320,10 @@ namespace MvsTexturing {
                     }
                 }
 
+                if (unLabeledFaces.size() == 0) {
+                    return;
+                }
+
                 mve::SubMesh::Ptr subMesh = mve::SubMesh::create(mesh, unLabeledFaces);
                 std::size_t nSubFaces = subMesh->getFaceCount();
                 DataCosts subDataCosts(nSubFaces, textureViews.size());
@@ -1327,6 +1331,7 @@ namespace MvsTexturing {
                 MvsTexturing::Builder::MVE::build_adjacency_graph(subMesh, meshInfo, &subGraph);
 
                 FaceProjectionInfoList subFaceLabelInfos(nSubFaces);
+
                 calculate_face_projection_infos(subMesh, bvhTree, param, textureViews, &subFaceLabelInfos);
                 postprocess_face_infos(param, textureViews, &subFaceLabelInfos, &subDataCosts);
                 solve_mrf_problem_using_MapMapCpu(subDataCosts, subGraph);

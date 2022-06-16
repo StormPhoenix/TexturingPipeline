@@ -49,7 +49,7 @@ namespace MvsTexturing {
         double min_plane_size;
 
         bool sparse_model = false;
-        int plane_density = 400;
+        float textureQuality = 1.0f;
 
         bool debug_mode = false;
         std::string debug_dir;

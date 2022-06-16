@@ -11,7 +11,6 @@
 
 namespace MvsTexturing {
     namespace MeshRepair {
-        const int kPlaneDensity = 400;
 
         typedef double Scalar;
         typedef Eigen::Matrix<Scalar, -1, -1, Eigen::RowMajor> AttributeMatrix;
@@ -56,7 +55,7 @@ namespace MvsTexturing {
 
                 const FacesSubdivisions &faces_subdivision, std::vector<TexturePatch::Ptr> *final_texture_patches,
                 std::size_t kPaddingPixels = Base::TexturePatch::kTexturePatchPadding,
-                std::size_t plane_density = kPlaneDensity);
+                float textureQualities = 1.0f);
 
         bool create_irregular_patches_on_sparse_mesh(
                 const AttributeMatrix &sparse_mesh_vertices, const IndexMatrix &sparse_mesh_faces,
@@ -65,8 +64,7 @@ namespace MvsTexturing {
                 const std::vector<FloatImageConstPtr> &dense_face_materials,
                 const FacesSubdivisions &faces_subdivision,
                 std::vector<TexturePatch::Ptr> *final_texture_patches,
-                const std::size_t kPaddingPixels = Base::TexturePatch::kTexturePatchPadding,
-                const std::size_t plane_density = kPlaneDensity);
+                const std::size_t kPaddingPixels = Base::TexturePatch::kTexturePatchPadding);
 
         bool fit_face_group_plane(const AttributeMatrix &vertices, const IndexMatrix &faces,
                                   FaceGroup &group);
